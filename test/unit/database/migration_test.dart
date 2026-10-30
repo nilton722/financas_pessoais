@@ -7,9 +7,22 @@ import 'package:financas_pessoais/core/database/migrations/schema_v1.dart';
 import 'package:financas_pessoais/core/database/migrations/schema_v2.dart';
 import 'package:financas_pessoais/core/database/migrations/schema_v3.dart';
 import 'package:financas_pessoais/core/database/migrations/schema_v4.dart';
+import 'package:financas_pessoais/core/formatters/date_formatter.dart';
+import 'package:financas_pessoais/features/accounts/data/account_repository.dart';
+import 'package:financas_pessoais/features/planning/data/budget_repository.dart';
+import 'package:financas_pessoais/features/planning/data/debt_repository.dart';
+import 'package:financas_pessoais/features/planning/data/planning_repository.dart';
+import 'package:financas_pessoais/features/planning/data/savings_goal_repository.dart';
+import 'package:financas_pessoais/features/planning/domain/budget.dart';
+import 'package:financas_pessoais/features/planning/domain/debt.dart';
+import 'package:financas_pessoais/features/planning/domain/planned_item.dart';
+import 'package:financas_pessoais/features/planning/domain/savings_goal.dart';
+import 'package:financas_pessoais/features/transactions/data/transaction_repository.dart';
+import 'package:financas_pessoais/features/transactions/domain/movement.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/database_fixtures.dart';
+import '../../support/domain_fixtures.dart';
 
 void main() {
   group('esquema atual', () {
@@ -193,6 +206,169 @@ void main() {
       final versions = await second.select(second.schemaMigrations).get();
       expect(versions.length, 4);
       expect(await second.readUserVersion(), SchemaV4.version);
+    });
+  });
+
+  group('migração de ficheiro v3 para v4', () {
+    late Directory directory;
+
+    setUp(() async {
+      directory = await Directory.systemTemp.createTemp(
+        'financas_migration_v3',
+      );
+    });
+
+    tearDown(() async {
+      if (directory.existsSync()) {
+        await directory.delete(recursive: true);
+      }
+    });
+
+    /// A v4 só acrescenta índices. Reverter para v3 remove-os e baixa a versão,
+    /// simulando uma instalação anterior com dados de todas as áreas.
+    Future<void> downgradeToV3(AppDatabase db) async {
+      for (final index in [
+        'idx_savings_goals_archived',
+        'idx_debts_status',
+        'idx_debt_payments_debt',
+      ]) {
+        await db.customStatement('DROP INDEX IF EXISTS $index');
+      }
+      await db.customStatement(
+        'DELETE FROM schema_migrations WHERE version > 3',
+      );
+      await db.customStatement('PRAGMA user_version = 3');
+    }
+
+    Future<int> countRows(AppDatabase db, String table) async {
+      final row = await db
+          .customSelect('SELECT COUNT(*) AS total FROM "$table"')
+          .getSingle();
+      return row.read<int>('total');
+    }
+
+    test('preserva planeamento, orçamentos, metas e dívidas', () async {
+      final file = File('${directory.path}/v3.sqlite');
+
+      final legacy = AppDatabase(NativeDatabase(file));
+      final wallet = await createTestAccount(legacy, openingBalance: 10000);
+      await TransactionRepository(legacy).createMovement(
+        MovementDraft(
+          kind: MovementKind.expense,
+          amount: 2500,
+          date: FinancialDate.today(),
+          accountId: wallet,
+          categoryId: seededFoodCategoryId,
+          description: 'Mercado',
+        ),
+      );
+      final itemId = await PlanningRepository(legacy).createItem(
+        PlannedItemDraft(
+          kind: PlannedItemKind.expense,
+          amount: 3000,
+          dueDate: FinancialDate.today().add(const Duration(days: 5)),
+          description: 'Renda',
+          accountId: wallet,
+          categoryId: seededFoodCategoryId,
+        ),
+      );
+      await PlanningRepository(legacy).payItem(
+        itemId,
+        PaymentDraft(
+          amount: 1000,
+          date: FinancialDate.today(),
+          accountId: wallet,
+          categoryId: seededFoodCategoryId,
+          description: 'Pagamento renda',
+        ),
+      );
+      await BudgetRepository(legacy).save(
+        BudgetDraft(
+          categoryId: seededFoodCategoryId,
+          limitAmount: 4000,
+          periodStart: DateTime.now(),
+        ),
+      );
+      await SavingsGoalRepository(legacy).create(
+        SavingsGoalDraft(
+          name: 'Emergência',
+          targetAmount: 5000,
+          linkedAccountId: wallet,
+        ),
+      );
+      final debtId = await DebtRepository(legacy).create(
+        DebtDraft(
+          kind: DebtKind.payable,
+          description: 'Empréstimo',
+          originalAmount: 2000,
+        ),
+      );
+      await DebtRepository(legacy).pay(
+        debtId,
+        DebtPaymentDraft(
+          amount: 500,
+          date: FinancialDate.today(),
+          accountId: wallet,
+          categoryId: seededFoodCategoryId,
+        ),
+      );
+
+      await downgradeToV3(legacy);
+      expect(await legacy.readUserVersion(), SchemaV3.version);
+      await legacy.close();
+
+      final migrated = AppDatabase(NativeDatabase(file));
+      addTearDown(migrated.close);
+
+      expect(await migrated.readUserVersion(), SchemaV4.version);
+      final versions = await migrated.select(migrated.schemaMigrations).get();
+      expect(versions.map((row) => row.version), [1, 2, 3, 4]);
+
+      expect(await countRows(migrated, 'accounts'), 1);
+      expect(
+        await countRows(migrated, 'transactions'),
+        3,
+        reason: 'despesa, pagamento do compromisso e pagamento da dívida',
+      );
+      expect(await countRows(migrated, 'planned_item_payments'), 1);
+      expect(await countRows(migrated, 'debt_payments'), 1);
+      expect(await countRows(migrated, 'budgets'), 1);
+      expect(await countRows(migrated, 'savings_goals'), 1);
+      expect(await countRows(migrated, 'debts'), 1);
+
+      final balances = await AccountRepository(migrated)
+          .readBalances(until: FinancialDate.today());
+      expect(balances.single.balance, 6000);
+
+      final item = (await PlanningRepository(migrated).readItems()).single;
+      expect(item.paidTotal, 1000);
+      expect(item.remaining, 2000);
+
+      final debt = (await DebtRepository(migrated).readDebts()).single;
+      expect(debt.paidTotal, 500);
+      expect(debt.remaining, 1500);
+
+      final goal = (await SavingsGoalRepository(migrated).readAll()).single;
+      expect(goal.currentAmount, 6000);
+
+      final budget = (await BudgetRepository(
+        migrated,
+      ).readMonth(DateTime.now())).single;
+      expect(budget.limitAmount, 4000);
+      expect(budget.spent, 4000);
+
+      final indexes = await migrated
+          .customSelect(
+            "SELECT name FROM sqlite_master WHERE type = 'index' "
+            "AND name IN (?, ?, ?)",
+            variables: [
+              Variable.withString('idx_savings_goals_archived'),
+              Variable.withString('idx_debts_status'),
+              Variable.withString('idx_debt_payments_debt'),
+            ],
+          )
+          .get();
+      expect(indexes, hasLength(3));
     });
   });
 }

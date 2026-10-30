@@ -23,5 +23,12 @@ void main() {
     test('formata saldos negativos', () {
       expect(_normalize(MoneyFormatter.formatXof(-12500)), '-12 500 FCFA');
     });
+
+    test('formata o montante máximo sem perda de precisão', () {
+      expect(
+        _normalize(MoneyFormatter.formatXof(999999999999)),
+        '999 999 999 999 FCFA',
+      );
+    });
   });
 }

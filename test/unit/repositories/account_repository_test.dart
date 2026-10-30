@@ -114,6 +114,16 @@ void main() {
     expect((await balances())[wallet], 6800);
   });
 
+  test('saldo real pode ficar negativo sem perder o sinal', () async {
+    final wallet = await createTestAccount(db, openingBalance: 1000);
+
+    await transactions.createMovement(draft(accountId: wallet, amount: 3000));
+
+    expect((await balances())[wallet], -2000);
+    final entries = await accounts.readBalances(until: FinancialDate.today());
+    expect(consolidatedBalance(entries), -2000);
+  });
+
   test(
     'transferência debita origem, credita destino e não altera o consolidado',
     () async {

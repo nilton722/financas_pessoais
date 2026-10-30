@@ -44,5 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Android signing: nunca versionar credenciais nem keystores
+android/key.properties
+*.jks
+*.keystore
+
 # Widget Preview related
 .widget_preview/

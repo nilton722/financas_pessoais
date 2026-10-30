@@ -129,3 +129,11 @@ Motivo: uma única política de agregação evita divergência entre o ecrã e o
 **Estado:** aceite na Fase 05. Esta versão não implementa PIN nem biometria. As definições explicam que a base SQLite e os ficheiros de backup/exportação não são cifrados e ficam legíveis num dispositivo desbloqueado ou com root; um eventual bloqueio de interface seria apenas uma barreira visual, não cifragem. Não é criada criptografia própria.
 A aplicação não pede permissões de armazenamento: usa a pasta externa específica da aplicação no Android (ou documentos no desktop) e só escreve quando o utilizador cria um backup ou exporta um relatório. O checksum do backup não é apresentado como segurança. Se PIN/biometria forem introduzidos, usarão APIs seguras da plataforma para bloquear o acesso, mantendo explícita a limitação da base não cifrada.
 Motivo: cumprir "PIN/biometria só com APIs seguras" sem prometer uma proteção que a versão não oferece, e documentar as limitações de proteção local exigidas na Fase 05.
+
+## ADR-031 — Build de release assinado fora do repositório
+**Estado:** aceite na Fase 06. O Gradle lê `android/key.properties` (ignorado pelo Git, com `android/key.properties.example` sem valores reais) e, quando o ficheiro existe, assina o release com essa chave. Sem o ficheiro, o release usa a chave de debug apenas para validação local; esse APK não deve ser distribuído. Nenhuma credencial é embutida no código, no APK ou no repositório. O rótulo Android passa a "Finanças Pessoais" e o manifesto de release continua sem a permissão `INTERNET`.
+Regras:
+- `key.properties`, `*.jks` e `*.keystore` ficam fora do controlo de versões.
+- O build de release só é gerado depois de formatação, análise e testes verdes.
+- Instalar um APK com assinatura diferente da anterior obriga a desinstalar e perde a base privada; o manual exige backup antes da atualização.
+Motivo: preparar a distribuição Android sem publicar automaticamente nem expor segredos, mantendo um caminho reproduzível para validar o build localmente.

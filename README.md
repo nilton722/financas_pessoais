@@ -3,11 +3,15 @@
 Aplicação mobile de finanças pessoais para uso individual: Flutter/Dart, SQLite
 local, offline-first. Sem backend, sem login remoto, sem telemetria.
 
-**Estado:** Fase 05 (experiência, relatórios e privacidade) concluída — painel
-com saldo real e projetado, orçamento, compromissos e metas; relatórios por
-período/categoria/conta com exportação CSV; backup JSON versionado com validação
-e restauro atómico; definições de privacidade e localização dos dados. Tudo
-offline, sem backend nem telemetria.
+**Estado:** Fase 06 (validação e preparação para lançamento) concluída — testes
+de integração ponta a ponta, migração v3→v4 com dados, modo avião validado,
+revisão de segurança/privacidade/acessibilidade, dependências limpas,
+documentação de lançamento e APK de release gerado e instalado. Tudo offline,
+sem backend nem telemetria.
+
+Manual de instalação e uso: [docs/MANUAL.md](docs/MANUAL.md).
+Relatório de validação e defeitos conhecidos:
+[docs/VALIDACAO-FASE-06.md](docs/VALIDACAO-FASE-06.md).
 
 ## Requisitos
 
@@ -38,6 +42,10 @@ flutter analyze
 flutter test
 ```
 
+Validação de release: `dart format --set-exit-if-changed .`, `flutter analyze`,
+`flutter test` e `flutter build apk --release` — resultados e data em
+[docs/VALIDACAO-FASE-06.md](docs/VALIDACAO-FASE-06.md).
+
 ## Estrutura
 
 ```text
@@ -57,7 +65,9 @@ test/
   support/        fixtures de base de dados, domínio e widgets
   unit/           domínio, formatters, base de dados, repositórios, backup e relatórios
   widget/         arranque, navegação e fluxos de criação/validação
-docs/             SPEC, decisões (ADR), modelo de dados, backup e privacidade
+  integration/    jornada completa: lançamento, previsão, backup e restauro
+docs/             SPEC, decisões (ADR), modelo de dados, backup, privacidade,
+                  manual de uso e validação de release
 ```
 
 Camadas: widgets não contêm SQL nem regras financeiras; acesso a dados passa
@@ -91,6 +101,7 @@ entrada “Privacidade e backup”, sem ocupar separadores.
 Detalhe do esquema, seeds e plano de migrações: [docs/DATABASE.md](docs/DATABASE.md).
 Backup, exportação e recuperação: [docs/BACKUP.md](docs/BACKUP.md).
 Privacidade e limitações de proteção local: [docs/PRIVACY.md](docs/PRIVACY.md).
+Instalação, uso e assinatura de release: [docs/MANUAL.md](docs/MANUAL.md).
 
 ## Notas de ambiente (Windows)
 
@@ -160,4 +171,4 @@ Privacidade e limitações de proteção local: [docs/PRIVACY.md](docs/PRIVACY.m
 | 03 | Planeamento, orçamentos, recorrências, metas, dívidas | concluída |
 | 04 | Previsão local | concluída |
 | 05 | Dashboard, relatórios, backup, privacidade | concluída |
-| 06 | Validação e preparação Android | por iniciar |
+| 06 | Validação e preparação Android | concluída |

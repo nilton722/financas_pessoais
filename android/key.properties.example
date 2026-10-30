@@ -1,0 +1,8 @@
+# Copiar para android/key.properties e preencher com a chave de release.
+# Nunca versionar este ficheiro preenchido nem o keystore (.jks/.keystore).
+#
+# storeFile é relativo à pasta android/app (por exemplo ../financas-release.jks).
+storePassword=SUBSTITUIR
+keyPassword=SUBSTITUIR
+keyAlias=financas-release
+storeFile=../financas-release.jks

@@ -226,6 +226,20 @@ descreve a migração da base, não o conteúdo. O restauro valida o ficheiro e
 substitui os dados numa única transação com `PRAGMA foreign_key_check`
 (ADR-028). Formato, localizações e recuperação: [BACKUP.md](BACKUP.md).
 
+## Fase 06 — sem alterações de esquema
+
+A validação de lançamento não altera tabelas, colunas ou migrações. Foram
+acrescentados testes de integração e de migração com dados de exemplo:
+
+- v1 → v4: contas, categorias e movimentos preservados, tabelas novas criadas.
+- v3 → v4: dados de movimentos, compromissos, pagamentos, orçamentos, metas,
+  dívidas e liquidações preservados; os três índices da v4 são recriados e o
+  `user_version` passa a 4.
+
+As consultas continuam parametrizadas; os únicos identificadores SQL
+interpolados são nomes fixos de tabelas/colunas do backup, entre aspas
+(ADR-028). Detalhe dos resultados: [VALIDACAO-FASE-06.md](VALIDACAO-FASE-06.md).
+
 ## Seeds (idempotentes)
 
 Inseridos com `INSERT OR IGNORE` em cada abertura, usando UUIDs fixos — uma
@@ -250,7 +264,9 @@ Não são criadas contas nem movimentos fictícios.
 
 A migração v1 → v4 foi validada num emulador Android com dados da fase
 anterior: `user_version` passou a 4, tabelas novas criadas e contas,
-categorias e movimentos preservados.
+categorias e movimentos preservados. A migração v3 → v4 foi validada com dados
+de todas as áreas (movimentos, compromissos pagos, orçamento, meta e dívida
+com liquidação), sem perda de registos nem de saldos.
 
 Regras do processo:
 
@@ -280,5 +296,6 @@ Regras do processo:
 `test/unit/reports/report_test.dart`,
 `test/unit/reports/report_csv_test.dart`,
 `test/widget/planning_flow_test.dart`, `test/widget/forecast_flow_test.dart`,
-`test/widget/reports_flow_test.dart`, `test/widget/backup_flow_test.dart` e
-`test/widget/dashboard_flow_test.dart`.
+`test/widget/reports_flow_test.dart`, `test/widget/backup_flow_test.dart`,
+`test/widget/dashboard_flow_test.dart` e
+`test/integration/release_flow_test.dart`.

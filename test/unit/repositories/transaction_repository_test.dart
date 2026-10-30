@@ -76,6 +76,20 @@ void main() {
     expect(item.categoryName, 'Salário');
   });
 
+  test('aceita o montante máximo e mantém aritmética inteira', () async {
+    final wallet = await createTestAccount(db, openingBalance: 1);
+    const limit = 999999999999;
+
+    await transactions.createMovement(
+      incomeDraft(accountId: wallet, amount: limit),
+    );
+
+    final stored = (await transactions.readMovements(const MovementFilter()))
+        .single;
+    expect(stored.movement.amount, limit);
+    expect(await balanceOf(wallet), limit + 1);
+  });
+
   test('transferência falhada não deixa movimentos parciais', () async {
     final wallet = await createTestAccount(db, openingBalance: 5000);
 
