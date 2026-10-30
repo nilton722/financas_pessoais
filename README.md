@@ -3,10 +3,11 @@
 Aplicação mobile de finanças pessoais para uso individual: Flutter/Dart, SQLite
 local, offline-first. Sem backend, sem login remoto, sem telemetria.
 
-**Estado:** Fase 03 (planeamento) concluída — compromissos futuros com
-pagamentos totais/parciais, recorrências idempotentes, orçamentos mensais por
-categoria, metas de poupança e dívidas, sobre as contas, categorias e
-movimentos da Fase 02. Tudo offline, sem backend nem telemetria.
+**Estado:** Fase 04 (previsão local) concluída — motor determinístico em Dart
+com saldo projetado a 7, 30 e 90 dias, compromissos confirmados, estimativas
+por categoria a partir de histórico suficiente e explicação de pressupostos e
+limitações, sobre as contas, categorias, movimentos e planeamento das fases
+anteriores. Tudo offline, sem backend nem telemetria.
 
 ## Requisitos
 
@@ -49,6 +50,7 @@ lib/
     categories/   categorias de rendimento e despesa
     transactions/ movimentos, transferências e filtros
     planning/     compromissos, recorrências, orçamentos, metas e dívidas
+    forecast/     previsão local: motor, repositório, providers e ecrã
     settings/     configuração local
 test/
   support/        fixtures de base de dados, domínio e widgets
@@ -65,7 +67,8 @@ Navegação: `go_router` com `ShellRoute` e barra inferior com cinco separadores
 rotas próprias (`/accounts/new`, `/movements/:id/edit`,
 `/planning/commitments/:id/pay`, …) — ver ADR-017. O separador Planeamento
 agrupa cinco áreas: compromissos, orçamentos, recorrências, metas de poupança e
-dívidas.
+dívidas. A previsão abre em `/forecast`, a partir do cartão do painel; não ocupa
+um separador próprio.
 
 ## Base de dados
 
@@ -79,7 +82,8 @@ dívidas.
   movimentos não eliminados até à data de referência (ADR-018).
 - O esquema está em **v4**. As migrações v2–v4 (Fase 03) são aditivas e
   preservam os dados existentes: compromissos e recorrências, orçamentos,
-  metas e dívidas. Nenhuma base é recriada para atualizar.
+  metas e dívidas. Nenhuma base é recriada para atualizar. A Fase 04 não altera
+  o esquema: a previsão lê as tabelas existentes.
 
 Detalhe do esquema, seeds e plano de migrações: [docs/DATABASE.md](docs/DATABASE.md).
 
@@ -117,6 +121,13 @@ Detalhe do esquema, seeds e plano de migrações: [docs/DATABASE.md](docs/DATABA
   liquidação por movimento `expense`/`income`.
 - Alertas locais dentro da app para compromissos a vencer/vencidos, dívidas
   vencidas e orçamentos excedidos.
+- Previsão local determinística a 7, 30 e 90 dias: saldo de partida a partir dos
+  movimentos reais, compromissos em aberto (líquidos do já pago) e ocorrências
+  recorrentes materializadas uma única vez; despesas históricas só entram com
+  histórico suficiente, por mediana mensal e excluindo categorias com
+  compromissos conhecidos. Mostra saldo projetado, menor saldo, próximos
+  compromissos, pressupostos, qualidade dos dados e limitações — ver ADR-026 e
+  ADR-027.
 - Backup/restauro versionado: previsto para a Fase 05; ainda não implementado.
 
 ## Fases
@@ -126,6 +137,6 @@ Detalhe do esquema, seeds e plano de migrações: [docs/DATABASE.md](docs/DATABA
 | 01 | Fundação Flutter + esquema SQLite v1 | concluída |
 | 02 | Contas, categorias, movimentos | concluída |
 | 03 | Planeamento, orçamentos, recorrências, metas, dívidas | concluída |
-| 04 | Previsão local | por iniciar |
+| 04 | Previsão local | concluída |
 | 05 | Dashboard, relatórios, backup, privacidade | por iniciar |
 | 06 | Validação e preparação Android | por iniciar |
