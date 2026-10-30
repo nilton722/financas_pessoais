@@ -33,6 +33,11 @@ void main() {
     expect(find.text('Qualidade dos dados e limitações'), findsOneWidget);
     expect(find.text('Sem compromissos'), findsOneWidget);
     expect(find.textContaining('Data de corte:'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      forecastAlgorithmFooter('forecast-1'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(forecastAlgorithmFooter('forecast-1'), findsOneWidget);
 
     await disposeApp(tester);

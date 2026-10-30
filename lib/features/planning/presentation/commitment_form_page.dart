@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_input_parser.dart';
@@ -181,11 +182,11 @@ class _CommitmentFormPageState extends ConsumerState<CommitmentFormPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.page,
               children: [
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
                   children: [
                     for (final kind in PlannedItemKind.values)
                       ChoiceChip(
@@ -201,7 +202,7 @@ class _CommitmentFormPageState extends ConsumerState<CommitmentFormPage> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _amountController,
                   enabled: !_locked,
@@ -209,35 +210,32 @@ class _CommitmentFormPageState extends ConsumerState<CommitmentFormPage> {
                   decoration: InputDecoration(
                     labelText: 'Valor',
                     suffixText: 'FCFA',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['amount'],
                     helperText: 'Número inteiro, sem decimais.',
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 InkWell(
                   onTap: _locked ? null : _pickDate,
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: 'Vencimento',
-                      border: const OutlineInputBorder(),
                       errorText: _errors['dueDate'],
                       suffixIcon: const Icon(Icons.calendar_today_outlined),
                     ),
                     child: Text(formatDate(_dueDate)),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _descriptionController,
                   enabled: !_locked,
                   decoration: InputDecoration(
                     labelText: 'Descrição',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['description'],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<String>(
                   label: 'Conta (opcional)',
                   value: _accountId ?? '',
@@ -260,7 +258,7 @@ class _CommitmentFormPageState extends ConsumerState<CommitmentFormPage> {
                               : id,
                         ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<String>(
                   label: 'Categoria (opcional)',
                   value: _categoryId ?? '',
@@ -289,7 +287,7 @@ class _CommitmentFormPageState extends ConsumerState<CommitmentFormPage> {
                         ),
                 ),
                 if (_locked) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
                     'Este compromisso já está liquidado ou cancelado. '
                     'Para o alterar, reverta o movimento associado.',
@@ -299,7 +297,7 @@ class _CommitmentFormPageState extends ConsumerState<CommitmentFormPage> {
                   ),
                 ],
                 if (_errors['form'] != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
                     _errors['form']!,
                     style: TextStyle(
@@ -307,7 +305,7 @@ class _CommitmentFormPageState extends ConsumerState<CommitmentFormPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 FilledButton(
                   onPressed: _saving || _locked ? null : _save,
                   child: Text(_saving ? 'A guardar…' : 'Guardar'),

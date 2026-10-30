@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_tokens.dart';
+import '../../../app/theme/finance_colors.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/formatters/plural_formatter.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/money_text.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/presentation/accounts_providers.dart';
 import '../../categories/domain/category.dart';
@@ -63,23 +67,15 @@ class MovementsPage extends ConsumerWidget {
                   title: 'Sem movimentos',
                   message: 'Ajusta os filtros ou registra um novo movimento.',
                 ),
-              AsyncData(:final value) => ListView.separated(
-                padding: const EdgeInsets.only(bottom: 96),
-                itemCount: value.items.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final item = value.items[index];
-                  return _MovementTile(
-                    item: item,
-                    onEdit: () =>
-                        context.push('/movements/${item.movement.id}/edit'),
-                    onDelete: () => _delete(context, ref, item.movement),
-                  );
-                },
+              AsyncData(:final value) => _GroupedMovementsList(
+                items: value.items,
+                onEdit: (item) =>
+                    context.push('/movements/${item.movement.id}/edit'),
+                onDelete: (item) => _delete(context, ref, item.movement),
               ),
               AsyncError(:final error) => Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(AppSpacing.xl),
                   child: Text(
                     error is AppFailure
                         ? error.message
@@ -138,6 +134,126 @@ class MovementsPage extends ConsumerWidget {
   }
 }
 
+sealed class _MovementRowData {
+  const _MovementRowData();
+}
+
+class _DayRowData extends _MovementRowData {
+  const _DayRowData({required this.date, required this.items});
+
+  final DateTime date;
+  final List<MovementListItem> items;
+}
+
+class _ItemRowData extends _MovementRowData {
+  const _ItemRowData(this.item);
+
+  final MovementListItem item;
+}
+
+class _GroupedMovementsList extends StatelessWidget {
+  const _GroupedMovementsList({
+    required this.items,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final List<MovementListItem> items;
+  final ValueChanged<MovementListItem> onEdit;
+  final ValueChanged<MovementListItem> onDelete;
+
+  List<_MovementRowData> _rows() {
+    final rows = <_MovementRowData>[];
+    _DayRowData? day;
+    DateTime? lastDate;
+    for (final item in items) {
+      final date = FinancialDate.dateOnly(item.movement.date);
+      if (day == null || date != lastDate) {
+        day = _DayRowData(date: date, items: []);
+        rows.add(day);
+        lastDate = date;
+      }
+      day.items.add(item);
+      rows.add(_ItemRowData(item));
+    }
+    return rows;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _rows();
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 96),
+      itemCount: rows.length,
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        return switch (row) {
+          _DayRowData(:final date, :final items) => _DayHeader(
+            date: date,
+            items: items,
+          ),
+          _ItemRowData(:final item) => _MovementTile(
+            item: item,
+            onEdit: () => onEdit(item),
+            onDelete: () => onDelete(item),
+          ),
+        };
+      },
+    );
+  }
+}
+
+class _DayHeader extends StatelessWidget {
+  const _DayHeader({required this.date, required this.items});
+
+  final DateTime date;
+  final List<MovementListItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final income = items
+        .where((item) => item.movement.kind == MovementKind.income)
+        .fold(0, (total, item) => total + item.movement.amount);
+    final expense = items
+        .where((item) => item.movement.kind == MovementKind.expense)
+        .fold(0, (total, item) => total + item.movement.amount);
+    final net = income - expense;
+    return Container(
+      color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.7),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Text(
+            FinancialDate.toDisplay(FinancialDate.fromDateTime(date)),
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            PluralFormatter.count(items.length, 'movimento', 'movimentos'),
+            style: theme.textTheme.bodySmall,
+          ),
+          const Spacer(),
+          if (net != 0)
+            MoneyText(
+              net,
+              signed: true,
+              tone: net > 0 ? MoneyTone.income : MoneyTone.expense,
+              style: theme.textTheme.labelMedium,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FilterBar extends StatelessWidget {
   const _FilterBar({
     required this.filter,
@@ -166,12 +282,20 @@ class _FilterBar extends StatelessWidget {
         : '${FinancialDate.toDisplay(FinancialDate.fromDateTime(filter.from!))}'
               ' – ${FinancialDate.toDisplay(FinancialDate.fromDateTime(filter.to!))}';
     return Card(
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        0,
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         child: Wrap(
-          spacing: 16,
-          runSpacing: 8,
+          spacing: AppSpacing.lg,
+          runSpacing: AppSpacing.sm,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             _FilterDropdown<MovementKind>(
@@ -258,7 +382,11 @@ class _FilterDropdown<T> extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
         SizedBox(
           width: 160,
           child: DropdownButtonHideUnderline(
@@ -288,15 +416,32 @@ class _TotalsBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.sm,
+      ),
       child: Row(
         children: [
-          _Total(label: 'Rendimentos', value: totals.income, theme: theme),
-          const SizedBox(width: 16),
-          _Total(label: 'Despesas', value: totals.expense, theme: theme),
-          const Spacer(),
+          Expanded(
+            child: _TotalChip(
+              label: 'Rendimentos',
+              value: totals.income,
+              tone: MoneyTone.income,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _TotalChip(
+              label: 'Despesas',
+              value: totals.expense,
+              tone: MoneyTone.expense,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
           Text(
-            '$count ${count == 1 ? 'registo' : 'registos'}',
+            PluralFormatter.count(count, 'registo', 'registos'),
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -305,26 +450,45 @@ class _TotalsBar extends StatelessWidget {
   }
 }
 
-class _Total extends StatelessWidget {
-  const _Total({required this.label, required this.value, required this.theme});
+class _TotalChip extends StatelessWidget {
+  const _TotalChip({
+    required this.label,
+    required this.value,
+    required this.tone,
+  });
 
   final String label;
   final int value;
-  final ThemeData theme;
+  final MoneyTone tone;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: theme.textTheme.labelSmall),
-        Text(
-          MoneyFormatter.formatXof(value),
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: AppRadii.control,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
         ),
-      ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: theme.textTheme.labelSmall),
+            const SizedBox(height: AppSpacing.xxs),
+            MoneyText(
+              value,
+              compact: true,
+              tone: tone,
+              style: theme.textTheme.titleSmall,
+              semanticsLabel: '$label: ${MoneyFormatter.formatXof(value)}',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -343,66 +507,126 @@ class _MovementTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final finance = FinanceColors.of(context);
     final movement = item.movement;
-    final isDark = theme.brightness == Brightness.dark;
-    final color = switch (movement.kind) {
-      MovementKind.income =>
-        isDark ? Colors.green.shade300 : Colors.green.shade700,
-      MovementKind.expense => theme.colorScheme.error,
-      MovementKind.transfer => theme.colorScheme.primary,
+    final tone = switch (movement.kind) {
+      MovementKind.income => MoneyTone.income,
+      MovementKind.expense => MoneyTone.expense,
+      MovementKind.transfer => MoneyTone.transfer,
     };
-    final icon = switch (movement.kind) {
-      MovementKind.income => Icons.add_circle_outline,
-      MovementKind.expense => Icons.remove_circle_outline,
-      MovementKind.transfer => Icons.swap_horiz,
+    final (background, foreground, icon) = switch (movement.kind) {
+      MovementKind.income => (
+        finance.incomeContainer,
+        finance.onIncomeContainer,
+        Icons.south_west,
+      ),
+      MovementKind.expense => (
+        theme.colorScheme.errorContainer,
+        theme.colorScheme.onErrorContainer,
+        Icons.north_east,
+      ),
+      MovementKind.transfer => (
+        finance.transferContainer,
+        finance.onTransferContainer,
+        Icons.swap_horiz,
+      ),
     };
     final title =
         movement.description ??
         item.categoryName ??
         (movement.kind.isTransfer ? 'Transferência' : 'Sem descrição');
-    final date = FinancialDate.toDisplay(
-      FinancialDate.fromDateTime(movement.date),
-    );
-    final subtitle = movement.kind.isTransfer
-        ? '$date · ${item.accountName} → ${item.destinationAccountName ?? ''}'
-        : '$date · ${item.accountName}';
-    final amount = switch (movement.kind) {
-      MovementKind.income => '+${MoneyFormatter.formatXof(movement.amount)}',
-      MovementKind.expense => '-${MoneyFormatter.formatXof(movement.amount)}',
-      MovementKind.transfer => MoneyFormatter.formatXof(movement.amount),
-    };
+    final details = movement.kind.isTransfer
+        ? '${item.accountName} → ${item.destinationAccountName ?? ''}'
+        : [
+            if (item.categoryName != null) item.categoryName!,
+            item.accountName,
+          ].join(' · ');
 
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            amount,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'Opções',
-            onSelected: (value) {
-              if (value == 'edit') {
-                onEdit();
-              } else if (value == 'delete') {
-                onDelete();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'edit', child: Text('Editar')),
-              PopupMenuItem(value: 'delete', child: Text('Eliminar')),
-            ],
-          ),
-        ],
-      ),
+    return InkWell(
       onTap: onEdit,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: background,
+                borderRadius: AppRadii.badge,
+              ),
+              child: Icon(icon, size: 20, color: foreground),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Semantics(
+                container: true,
+                label:
+                    '${movement.kind.label}: $title, $details, '
+                    '${FinancialDate.toDisplay(FinancialDate.fromDateTime(movement.date))}.',
+                child: ExcludeSemantics(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        details,
+                        style: theme.textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 132),
+              child: MoneyText(
+                movement.kind == MovementKind.expense
+                    ? -movement.amount
+                    : movement.amount,
+                signed: !movement.kind.isTransfer,
+                tone: tone,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Opções',
+              icon: Icon(
+                Icons.more_vert,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 160),
+              onSelected: (value) {
+                if (value == 'edit') {
+                  onEdit();
+                } else if (value == 'delete') {
+                  onDelete();
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'edit', child: Text('Editar')),
+                PopupMenuItem(value: 'delete', child: Text('Eliminar')),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

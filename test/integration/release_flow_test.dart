@@ -71,7 +71,7 @@ void main() {
     expect(find.text('Transferência'), findsWidgets);
 
     // Orçamento mensal de 20.000 para Alimentação: o gasto vem da despesa real.
-    await tapNavigation(tester, 'Planeamento');
+    await tapNavigation(tester, 'Plano');
     await tapVisible(tester, find.text('Orçamentos'));
     await tapVisible(
       tester,
@@ -83,13 +83,10 @@ void main() {
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Guardar'));
     expect(find.text('Orçamento guardado.'), findsOneWidget);
     await _dismissSnackBar(tester);
-    expect(
-      find.text(
-        '${MoneyFormatter.formatXof(12000)} de '
-        '${MoneyFormatter.formatXof(20000)} · 60%',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Gasto'), findsOneWidget);
+    expect(find.text(MoneyFormatter.formatXof(12000)), findsWidgets);
+    expect(find.text(MoneyFormatter.formatXof(20000)), findsWidgets);
+    expect(find.text('60%'), findsOneWidget);
 
     // Compromisso de 8.000 pago por inteiro: cria um único movimento real.
     await _goBack(tester);

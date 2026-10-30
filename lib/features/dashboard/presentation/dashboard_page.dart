@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_tokens.dart';
+import '../../../app/theme/finance_colors.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/formatters/plural_formatter.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/money_text.dart';
+import '../../../core/widgets/section_card.dart';
+import '../../accounts/domain/account.dart';
 import '../../accounts/domain/account_balance.dart';
 import '../../accounts/presentation/accounts_providers.dart';
 import '../../forecast/domain/forecast.dart';
@@ -90,95 +96,82 @@ class _DashboardContent extends ConsumerWidget {
         ref.invalidate(appSettingsProvider);
       },
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          AppSpacing.xxl,
+        ),
         children: [
           _BalanceCard(balances: balances),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(
                 child: _MetricCard(
                   label: 'Rendimentos do mês',
                   amount: month.value?.totals.income,
-                  icon: Icons.trending_up,
-                  color: theme.colorScheme.primary,
+                  icon: Icons.south_west,
+                  tone: MoneyTone.income,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _MetricCard(
                   label: 'Despesas do mês',
                   amount: month.value?.totals.expense,
-                  icon: Icons.trending_down,
-                  color: theme.colorScheme.error,
+                  icon: Icons.north_east,
+                  tone: MoneyTone.expense,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           _ForecastSummaryCard(
             forecast: forecast,
             onOpen: () => context.push('/forecast'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           _PlanningSummaryCard(
             month: budgetMonth,
             budgets: budgets,
             pending: pending,
             goals: goals,
           ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Contas',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                        if (activeBalances.length > 5)
-                          TextButton(
-                            onPressed: () => context.go('/accounts'),
-                            child: const Text('Ver todas'),
-                          ),
-                      ],
-                    ),
+          const SizedBox(height: AppSpacing.md),
+          SectionCard(
+            title: 'Contas',
+            subtitle: activeBalances.isEmpty
+                ? 'Nenhuma conta ativa'
+                : PluralFormatter.count(
+                    activeBalances.length,
+                    'conta ativa',
+                    'contas ativas',
                   ),
-                  if (activeBalances.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: EmptyState(
-                        icon: Icons.account_balance_outlined,
-                        title: 'Ainda sem contas',
-                        message:
-                            'Crie a primeira conta para registar movimentos.',
-                      ),
-                    )
-                  else
-                    for (final entry in activeBalances.take(5))
-                      ListTile(
-                        title: Text(entry.account.name),
-                        subtitle: Text(entry.account.type.label),
-                        trailing: Text(
-                          MoneyFormatter.formatXof(entry.balance),
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                        onTap: () =>
-                            context.push('/accounts/${entry.account.id}/edit'),
-                      ),
-                ],
-              ),
+            action: activeBalances.length > 5
+                ? TextButton(
+                    onPressed: () => context.go('/accounts'),
+                    child: const Text('Ver todas'),
+                  )
+                : null,
+            padding: const EdgeInsets.only(
+              top: AppSpacing.xs,
+              bottom: AppSpacing.xs,
             ),
+            child: activeBalances.isEmpty
+                ? const EmptyState(
+                    icon: Icons.account_balance_outlined,
+                    title: 'Ainda sem contas',
+                    message: 'Crie a primeira conta para registar movimentos.',
+                  )
+                : Column(
+                    children: [
+                      for (final entry in activeBalances.take(5))
+                        _AccountRow(entry: entry),
+                    ],
+                  ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.xl),
           Row(
             children: [
               Expanded(
@@ -188,7 +181,7 @@ class _DashboardContent extends ConsumerWidget {
                   label: const Text('Novo movimento'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => context.go('/movements'),
@@ -198,18 +191,34 @@ class _DashboardContent extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          TextButton.icon(
-            onPressed: () => context.push('/settings'),
-            icon: const Icon(Icons.lock_outline),
-            label: const Text('Privacidade e backup'),
+          const SizedBox(height: AppSpacing.md),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => context.push('/settings'),
+              icon: const Icon(Icons.lock_outline, size: 18),
+              label: const Text('Privacidade e backup'),
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Dados apenas neste dispositivo · '
-            '${settings.value?.timeZone ?? AppSettings.defaults.timeZone}'
-            ' · esquema v4',
-            style: theme.textTheme.bodySmall,
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.smartphone_outlined,
+                size: 14,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Flexible(
+                child: Text(
+                  'Dados apenas neste dispositivo · '
+                  '${settings.value?.timeZone ?? AppSettings.defaults.timeZone}'
+                  ' · esquema v4',
+                  style: theme.textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -226,10 +235,18 @@ class _BalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final total = consolidatedBalance(balances);
+    final negative = total < 0;
+    final background = negative
+        ? theme.colorScheme.errorContainer
+        : theme.colorScheme.primary;
+    final foreground = negative
+        ? theme.colorScheme.onErrorContainer
+        : theme.colorScheme.onPrimary;
     final formatted = MoneyFormatter.formatXof(total);
+    final active = balances.where((entry) => !entry.account.isArchived).length;
     return Card(
       key: const Key('dashboard-balance-real'),
-      color: theme.colorScheme.primaryContainer,
+      color: background,
       child: Semantics(
         container: true,
         label:
@@ -238,40 +255,61 @@ class _BalanceCard extends StatelessWidget {
             'arquivadas e outras moedas.',
         child: ExcludeSemantics(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.account_balance_wallet_outlined,
-                      size: 18,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Saldo real consolidado',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.xs),
+                      decoration: BoxDecoration(
+                        color: foreground.withValues(alpha: 0.14),
+                        borderRadius: AppRadii.small,
                       ),
+                      child: Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 18,
+                        color: foreground,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Saldo real consolidado',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: foreground,
+                        ),
+                      ),
+                    ),
+                    _SoftBadge(
+                      label: negative ? 'Negativo' : 'Hoje',
+                      foreground: foreground,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  formatted,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
+                const SizedBox(height: AppSpacing.md),
+                MoneyText(
+                  total,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.8,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Movimentos registados até hoje · exclui arquivadas e '
-                  'outras moedas',
+                  '${PluralFormatter.count(active, 'conta ativa', 'contas ativas')}'
+                  ' · movimentos registados até hoje',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
+                    color: foreground.withValues(alpha: 0.85),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  'Exclui contas arquivadas e outras moedas',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: foreground.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -283,36 +321,85 @@ class _BalanceCard extends StatelessWidget {
   }
 }
 
+class _SoftBadge extends StatelessWidget {
+  const _SoftBadge({required this.label, required this.foreground});
+
+  final String label;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: foreground.withValues(alpha: 0.35)),
+        borderRadius: AppRadii.badge,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xxs,
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: foreground, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.label,
     required this.amount,
     required this.icon,
-    required this.color,
+    required this.tone,
   });
 
   final String label;
   final int? amount;
   final IconData icon;
-  final Color color;
+  final MoneyTone tone;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final finance = FinanceColors.of(context);
+    final toneColor = switch (tone) {
+      MoneyTone.income => finance.income,
+      MoneyTone.expense => theme.colorScheme.error,
+      _ => theme.colorScheme.primary,
+    };
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color),
-            const SizedBox(height: 8),
-            Text(label, style: theme.textTheme.bodySmall),
-            const SizedBox(height: 4),
-            Text(
-              amount == null ? '…' : MoneyFormatter.formatXof(amount!),
-              style: theme.textTheme.titleMedium?.copyWith(color: color),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.xs),
+              decoration: BoxDecoration(
+                color: toneColor.withValues(alpha: 0.12),
+                borderRadius: AppRadii.small,
+              ),
+              child: Icon(icon, size: 18, color: toneColor),
             ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(label, style: theme.textTheme.bodySmall),
+            const SizedBox(height: AppSpacing.xxs),
+            if (amount == null)
+              Text('…', style: theme.textTheme.titleLarge)
+            else
+              MoneyText(
+                amount!,
+                compact: true,
+                tone: tone,
+                semanticsLabel: '$label: ${MoneyFormatter.formatXof(amount!)}',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
           ],
         ),
       ),
@@ -336,8 +423,15 @@ class _ForecastSummaryCard extends StatelessWidget {
         ? (forecast.hasError
               ? 'Não foi possível calcular a previsão.'
               : 'A calcular…')
+        : 'Saldo projetado ${MoneyFormatter.formatXofCompact(result.closingBalance)} '
+              'em 30 dias · mínimo '
+              '${MoneyFormatter.formatXofCompact(result.lowestBalance)} '
+              'em ${_formatDate(result.lowestDate)}';
+    final exactSubtitle = result == null
+        ? null
         : 'Saldo projetado ${MoneyFormatter.formatXof(result.closingBalance)} '
-              'em 30 dias · mínimo ${MoneyFormatter.formatXof(result.lowestBalance)} '
+              'em 30 dias · mínimo '
+              '${MoneyFormatter.formatXof(result.lowestBalance)} '
               'em ${_formatDate(result.lowestDate)}';
     final background = negative
         ? theme.colorScheme.errorContainer
@@ -351,12 +445,16 @@ class _ForecastSummaryCard extends StatelessWidget {
       child: Semantics(
         container: true,
         label:
-            'Estimativa. Previsão a 30 dias. $subtitle. '
+            'Estimativa. Previsão a 30 dias. ${exactSubtitle ?? subtitle}. '
             'Valores projetados, não garantias; não alteram o saldo real.',
         child: ExcludeSemantics(
           child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.xs,
+            ),
             leading: CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.surface,
+              backgroundColor: theme.colorScheme.surface,
               child: Icon(
                 negative
                     ? Icons.warning_amber_outlined
@@ -369,30 +467,21 @@ class _ForecastSummaryCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Previsão (30 dias)',
-                    style: TextStyle(color: foreground),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: foreground.withValues(alpha: 0.4),
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'Projetado',
-                    style: theme.textTheme.labelSmall?.copyWith(
+                    style: theme.textTheme.titleSmall?.copyWith(
                       color: foreground,
                     ),
                   ),
                 ),
+                _SoftBadge(label: 'Projetado', foreground: foreground),
               ],
             ),
-            subtitle: Text(subtitle, style: TextStyle(color: foreground)),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xxs),
+              child: Text(
+                subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(color: foreground),
+              ),
+            ),
             trailing: Icon(Icons.chevron_right, color: foreground),
             onTap: onOpen,
           ),
@@ -418,6 +507,7 @@ class _PlanningSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final finance = FinanceColors.of(context);
     final limit = budgets.fold(
       0,
       (total, budget) => total + budget.limitAmount,
@@ -455,103 +545,128 @@ class _PlanningSummaryCard extends StatelessWidget {
     );
     final reached = activeGoals.where((goal) => goal.isReached).length;
 
-    return Card(
+    return SectionCard(
       key: const Key('dashboard-planning'),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Planeamento',
-                      style: theme.textTheme.titleMedium,
+      title: 'Planeamento',
+      action: TextButton(
+        onPressed: () => context.go('/planning'),
+        child: const Text('Abrir'),
+      ),
+      padding: const EdgeInsets.only(top: AppSpacing.xs, bottom: AppSpacing.xs),
+      child: Column(
+        children: [
+          ListTile(
+            key: const Key('dashboard-budget'),
+            leading: const Icon(Icons.pie_chart_outline),
+            title: const Text('Orçamentos'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  budgets.isEmpty
+                      ? 'Sem orçamentos em ${formatMonth(month)}'
+                      : 'Gasto ${MoneyFormatter.formatXof(spent)} de '
+                            '${MoneyFormatter.formatXof(limit)}'
+                            '${exceeded > 0 ? ' · ${PluralFormatter.count(exceeded, 'excedido', 'excedidos')}' : ''}',
+                ),
+                if (budgets.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  ClipRRect(
+                    borderRadius: AppRadii.small,
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 6,
+                      color: exceeded > 0
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.primary,
+                      backgroundColor: theme.colorScheme.surfaceContainerHigh,
                     ),
                   ),
-                  TextButton(
-                    onPressed: () => context.go('/planning'),
-                    child: const Text('Abrir'),
-                  ),
+                  const SizedBox(height: AppSpacing.xs),
                 ],
-              ),
+              ],
             ),
-            ListTile(
-              key: const Key('dashboard-budget'),
-              leading: const Icon(Icons.pie_chart_outline),
-              title: const Text('Orçamentos'),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    budgets.isEmpty
-                        ? 'Sem orçamentos em ${formatMonth(month)}'
-                        : 'Gasto ${MoneyFormatter.formatXof(spent)} de '
-                              '${MoneyFormatter.formatXof(limit)}'
-                              '${exceeded > 0 ? ' · $exceeded excedido(s)' : ''}',
-                  ),
-                  if (budgets.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 6,
-                        color: exceeded > 0
-                            ? theme.colorScheme.error
-                            : theme.colorScheme.primary,
-                        backgroundColor:
-                            theme.colorScheme.surfaceContainerHighest,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/planning/budgets'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/planning/budgets'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            key: const Key('dashboard-commitments'),
+            leading: const Icon(Icons.event_note_outlined),
+            title: const Text('Compromissos pendentes'),
+            subtitle: Text(
+              pending.isEmpty
+                  ? 'Sem compromissos pendentes'
+                  : '${payable.length} a pagar · '
+                        '${MoneyFormatter.formatXof(payableTotal)}'
+                        '${receivable.isEmpty ? '' : ' · ${receivable.length} a receber · '
+                                  '${MoneyFormatter.formatXof(receivableTotal)}'}'
+                        '${nextDue == null ? '' : '\nPróximo vencimento: '
+                                  '${_formatDate(nextDue)}'}',
             ),
-            const Divider(height: 1),
-            ListTile(
-              key: const Key('dashboard-commitments'),
-              leading: const Icon(Icons.event_note_outlined),
-              title: const Text('Compromissos pendentes'),
-              subtitle: Text(
-                pending.isEmpty
-                    ? 'Sem compromissos pendentes'
-                    : '${payable.length} a pagar · '
-                          '${MoneyFormatter.formatXof(payableTotal)}'
-                          '${receivable.isEmpty ? '' : ' · ${receivable.length} a receber · '
-                                    '${MoneyFormatter.formatXof(receivableTotal)}'}'
-                          '${nextDue == null ? '' : '\nPróximo vencimento: '
-                                    '${_formatDate(nextDue)}'}',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/planning/commitments'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/planning/commitments'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            key: const Key('dashboard-goals'),
+            leading: const Icon(Icons.flag_outlined),
+            title: const Text('Metas de poupança'),
+            subtitle: Text(
+              activeGoals.isEmpty
+                  ? 'Sem metas ativas'
+                  : '${PluralFormatter.count(activeGoals.length, 'meta', 'metas')} · '
+                        '${MoneyFormatter.formatXof(saved)} de '
+                        '${MoneyFormatter.formatXof(target)}'
+                        '${reached > 0 ? ' · ${PluralFormatter.count(reached, 'alcançada', 'alcançadas')}' : ''}',
             ),
-            const Divider(height: 1),
-            ListTile(
-              key: const Key('dashboard-goals'),
-              leading: const Icon(Icons.flag_outlined),
-              title: const Text('Metas de poupança'),
-              subtitle: Text(
-                activeGoals.isEmpty
-                    ? 'Sem metas ativas'
-                    : '${activeGoals.length} meta(s) · '
-                          '${MoneyFormatter.formatXof(saved)} de '
-                          '${MoneyFormatter.formatXof(target)}'
-                          '${reached > 0 ? ' · $reached alcançada(s)' : ''}',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/planning/goals'),
+            trailing: Icon(
+              activeGoals.isEmpty ? Icons.chevron_right : Icons.flag_outlined,
+              color: activeGoals.isEmpty ? null : finance.positive,
             ),
-          ],
-        ),
+            onTap: () => context.push('/planning/goals'),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _AccountRow extends StatelessWidget {
+  const _AccountRow({required this.entry});
+
+  final AccountBalance entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final balance = entry.balance;
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: theme.colorScheme.surfaceContainerHigh,
+        child: Icon(_iconFor(entry.account.type), size: 20),
+      ),
+      title: Text(entry.account.name),
+      subtitle: Text(entry.account.type.label),
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 150),
+        child: MoneyText(
+          balance,
+          tone: balance < 0 ? MoneyTone.expense : MoneyTone.neutral,
+          style: theme.textTheme.titleSmall,
+        ),
+      ),
+      onTap: () => context.push('/accounts/${entry.account.id}/edit'),
+    );
+  }
+
+  IconData _iconFor(AccountType type) => switch (type) {
+    AccountType.cash => Icons.payments_outlined,
+    AccountType.bank => Icons.account_balance_outlined,
+    AccountType.mobileWallet => Icons.smartphone_outlined,
+    AccountType.savings => Icons.savings_outlined,
+    AccountType.other => Icons.wallet_outlined,
+  };
 }
 
 class _FailureContent extends StatelessWidget {
@@ -567,12 +682,12 @@ class _FailureContent extends StatelessWidget {
         : 'Não foi possível abrir a base de dados local.';
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton(
               onPressed: onRetry,
               child: const Text('Tentar novamente'),

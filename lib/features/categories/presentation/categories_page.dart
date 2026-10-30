@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/section_card.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../domain/category.dart';
 import 'categories_providers.dart';
 
@@ -37,10 +40,20 @@ class CategoriesPage extends ConsumerWidget {
         label: const Text('Nova categoria'),
       ),
       body: switch (categories) {
-        AsyncData(:final value) when value.isEmpty => const EmptyState(
-          icon: Icons.category_outlined,
-          title: 'Sem categorias',
-          message: 'Cria uma categoria de rendimento ou despesa.',
+        AsyncData(:final value) when value.isEmpty => Center(
+          child: SingleChildScrollView(
+            padding: AppSpacing.page,
+            child: EmptyState(
+              icon: Icons.category_outlined,
+              title: 'Sem categorias',
+              message: 'Cria uma categoria de rendimento ou despesa.',
+              action: FilledButton.icon(
+                onPressed: () => context.push('/categories/new'),
+                icon: const Icon(Icons.add),
+                label: const Text('Nova categoria'),
+              ),
+            ),
+          ),
         ),
         AsyncData(:final value) => _CategoryList(
           categories: value,
@@ -127,37 +140,52 @@ class _CategoryList extends StatelessWidget {
         .toList();
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 96),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xxl + AppSpacing.xxxl,
+      ),
       children: [
-        if (income.isNotEmpty) const _SectionHeader('Rendimentos'),
-        for (final category in income)
-          _CategoryTile(
-            category: category,
-            onEdit: () => onEdit(category),
-            onToggleArchive: () => onToggleArchive(category),
+        if (income.isNotEmpty) ...[
+          SectionCard(
+            title: 'Rendimentos',
+            padding: EdgeInsets.zero,
+            divider: true,
+            child: Column(
+              children: [
+                for (final category in income) ...[
+                  _CategoryTile(
+                    category: category,
+                    onEdit: () => onEdit(category),
+                    onToggleArchive: () => onToggleArchive(category),
+                  ),
+                  if (category != income.last) const Divider(height: 1),
+                ],
+              ],
+            ),
           ),
-        if (expense.isNotEmpty) const _SectionHeader('Despesas'),
-        for (final category in expense)
-          _CategoryTile(
-            category: category,
-            onEdit: () => onEdit(category),
-            onToggleArchive: () => onToggleArchive(category),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        if (expense.isNotEmpty)
+          SectionCard(
+            title: 'Despesas',
+            padding: EdgeInsets.zero,
+            divider: true,
+            child: Column(
+              children: [
+                for (final category in expense) ...[
+                  _CategoryTile(
+                    category: category,
+                    onEdit: () => onEdit(category),
+                    onToggleArchive: () => onToggleArchive(category),
+                  ),
+                  if (category != expense.last) const Divider(height: 1),
+                ],
+              ],
+            ),
           ),
       ],
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-      child: Text(title, style: Theme.of(context).textTheme.titleSmall),
     );
   }
 }
@@ -175,27 +203,49 @@ class _CategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = <String>[
-      category.isSystem ? 'Predefinida' : 'Personalizada',
-      if (category.isArchived) 'Arquivada',
-    ].join(' · ');
+    final theme = Theme.of(context);
+    final income = category.kind == CategoryKind.income;
     return ListTile(
-      leading: Icon(
-        category.kind == CategoryKind.income
-            ? Icons.trending_up
-            : Icons.trending_down,
+      leading: DecoratedBox(
+        decoration: BoxDecoration(
+          color: income
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.errorContainer,
+          borderRadius: AppRadii.control,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Icon(
+            income ? Icons.trending_up : Icons.trending_down,
+            size: 20,
+            color: income
+                ? theme.colorScheme.onPrimaryContainer
+                : theme.colorScheme.onErrorContainer,
+          ),
+        ),
       ),
       title: Text(category.name),
-      subtitle: Text(subtitle),
-      trailing: PopupMenuButton<String>(
-        tooltip: 'Opções',
-        onSelected: (_) => onToggleArchive(),
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            value: 'archive',
-            child: Text(
-              category.isArchived ? 'Reativar categoria' : 'Arquivar categoria',
-            ),
+      subtitle: Text(category.isSystem ? 'Predefinida' : 'Personalizada'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (category.isArchived) ...[
+            const StatusBadge('Arquivada'),
+            const SizedBox(width: AppSpacing.xs),
+          ],
+          PopupMenuButton<String>(
+            tooltip: 'Opções',
+            onSelected: (_) => onToggleArchive(),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'archive',
+                child: Text(
+                  category.isArchived
+                      ? 'Reativar categoria'
+                      : 'Arquivar categoria',
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -217,12 +267,12 @@ class _ErrorView extends StatelessWidget {
         : 'Não foi possível carregar as categorias.';
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: AppSpacing.page,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton(
               onPressed: onRetry,
               child: const Text('Tentar novamente'),

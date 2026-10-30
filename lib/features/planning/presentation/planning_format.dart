@@ -1,4 +1,5 @@
 import '../../../core/formatters/date_formatter.dart';
+import '../../../core/formatters/percent_formatter.dart';
 
 const List<String> _months = [
   'Janeiro',
@@ -24,9 +25,4 @@ String formatDate(DateTime date) =>
 String formatOptionalDate(DateTime? date, {String fallback = 'Sem data'}) =>
     date == null ? fallback : formatDate(date);
 
-String formatPercentage(double percent) {
-  if (percent >= 100) {
-    return '${percent.round()}%';
-  }
-  return '${percent.toStringAsFixed(percent < 10 ? 1 : 0)}%';
-}
+String formatPercentage(double percent) => PercentFormatter.format(percent);

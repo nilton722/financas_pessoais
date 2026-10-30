@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_input_parser.dart';
@@ -151,24 +152,22 @@ class _SavingsGoalFormPageState extends ConsumerState<SavingsGoalFormPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.page,
               children: [
                 TextField(
                   controller: _nameController,
                   decoration: InputDecoration(
                     labelText: 'Nome',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['name'],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _targetController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: 'Alvo',
                     suffixText: 'FCFA',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['targetAmount'],
                     helperText: 'Número inteiro, sem decimais.',
                   ),
@@ -189,13 +188,12 @@ class _SavingsGoalFormPageState extends ConsumerState<SavingsGoalFormPage> {
                     child: InputDecorator(
                       decoration: const InputDecoration(
                         labelText: 'Data-alvo',
-                        border: OutlineInputBorder(),
                         suffixIcon: Icon(Icons.calendar_today_outlined),
                       ),
                       child: Text(formatDate(_targetDate!)),
                     ),
                   ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<String>(
                   label: 'Conta associada (opcional)',
                   value: _accountId ?? '',
@@ -217,18 +215,17 @@ class _SavingsGoalFormPageState extends ConsumerState<SavingsGoalFormPage> {
                     () => _accountId = (id == null || id.isEmpty) ? null : id,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _notesController,
                   maxLines: 3,
                   decoration: InputDecoration(
                     labelText: 'Notas (opcional)',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['notes'],
                   ),
                 ),
                 if (_errors['form'] != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
                     _errors['form']!,
                     style: TextStyle(
@@ -236,7 +233,7 @@ class _SavingsGoalFormPageState extends ConsumerState<SavingsGoalFormPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 FilledButton(
                   onPressed: _saving ? null : _save,
                   child: Text(_saving ? 'A guardar…' : 'Guardar'),

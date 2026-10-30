@@ -12,6 +12,8 @@ sem backend nem telemetria.
 Manual de instalação e uso: [docs/MANUAL.md](docs/MANUAL.md).
 Relatório de validação e defeitos conhecidos:
 [docs/VALIDACAO-FASE-06.md](docs/VALIDACAO-FASE-06.md).
+Design system, tokens e política de apresentação de dados:
+[docs/DESIGN.md](docs/DESIGN.md) (ADR-032).
 
 ## Requisitos
 
@@ -67,17 +69,17 @@ test/
   widget/         arranque, navegação e fluxos de criação/validação
   integration/    jornada completa: lançamento, previsão, backup e restauro
 docs/             SPEC, decisões (ADR), modelo de dados, backup, privacidade,
-                  manual de uso e validação de release
+                  design system, manual de uso e validação de release
 ```
 
 Camadas: widgets não contêm SQL nem regras financeiras; acesso a dados passa
 por repositórios em `features/*/data` e providers Riverpod em `features/*/presentation`.
 
 Navegação: `go_router` com `ShellRoute` e barra inferior com cinco separadores
-(Painel, Movimentos, Contas, Categorias, Planeamento). Formulários abrem em
+(Painel, Movimentos, Contas, Categorias, Plano). Formulários abrem em
 rotas próprias (`/accounts/new`, `/movements/:id/edit`,
-`/planning/commitments/:id/pay`, …) — ver ADR-017. O separador Planeamento
-agrupa cinco áreas: compromissos, orçamentos, recorrências, metas de poupança e
+`/planning/commitments/:id/pay`, …) — ver ADR-017. O separador Plano agrupa
+cinco áreas: compromissos, orçamentos, recorrências, metas de poupança e
 dívidas. A previsão abre em `/forecast`, a partir do cartão do painel; não ocupa
 um separador próprio. **Relatórios** (`/reports`) e **Definições**
 (`/settings`, com `/settings/backups`) abrem pelos ícones do painel ou pela
@@ -99,6 +101,7 @@ entrada “Privacidade e backup”, sem ocupar separadores.
   alteram o esquema: a previsão e os relatórios leem as tabelas existentes.
 
 Detalhe do esquema, seeds e plano de migrações: [docs/DATABASE.md](docs/DATABASE.md).
+Design system e regras de exibição: [docs/DESIGN.md](docs/DESIGN.md).
 Backup, exportação e recuperação: [docs/BACKUP.md](docs/BACKUP.md).
 Privacidade e limitações de proteção local: [docs/PRIVACY.md](docs/PRIVACY.md).
 Instalação, uso e assinatura de release: [docs/MANUAL.md](docs/MANUAL.md).
@@ -161,6 +164,10 @@ Instalação, uso e assinatura de release: [docs/MANUAL.md](docs/MANUAL.md).
   compromissos conhecidos. Mostra saldo projetado, menor saldo, próximos
   compromissos, pressupostos, qualidade dos dados e limitações — ver ADR-026 e
   ADR-027.
+- Interface com design system unificado: tema teal claro/escuro sobre fundo
+  areia, cartões sem sombra, estados vazios, etiquetas de estado e montantes com
+  algarismos tabulares; valores exatos nas listas e resumo compacto apenas no
+  painel — ver [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Fases
 

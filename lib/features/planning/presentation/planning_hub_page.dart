@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/formatters/plural_formatter.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../domain/budget.dart';
 import '../domain/debt.dart';
 import '../domain/planned_item.dart';
@@ -102,52 +105,73 @@ class _PlanningHubPageState extends ConsumerState<PlanningHubPage> {
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.xxl,
+          ),
           children: [
             if (alerts.isNotEmpty) ...[
               Card(
                 color: theme.colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                        child: Text(
-                          'Alertas',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onErrorContainer,
-                          ),
-                        ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.md,
+                        AppSpacing.lg,
+                        AppSpacing.xs,
                       ),
-                      for (final alert in alerts)
-                        ListTile(
-                          leading: Icon(
-                            alert.icon,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_outlined,
+                            size: 20,
                             color: theme.colorScheme.onErrorContainer,
                           ),
-                          title: Text(
-                            alert.title,
-                            style: TextStyle(
-                              color: theme.colorScheme.onErrorContainer,
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              'Alertas',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onErrorContainer,
+                              ),
                             ),
                           ),
-                          subtitle: Text(
-                            alert.message,
-                            style: TextStyle(
-                              color: theme.colorScheme.onErrorContainer,
-                            ),
-                          ),
-                          onTap: () => context.go(alert.route),
+                        ],
+                      ),
+                    ),
+                    for (final alert in alerts)
+                      ListTile(
+                        leading: Icon(
+                          alert.icon,
+                          color: theme.colorScheme.onErrorContainer,
                         ),
-                    ],
-                  ),
+                        title: Text(
+                          alert.title,
+                          style: TextStyle(
+                            color: theme.colorScheme.onErrorContainer,
+                          ),
+                        ),
+                        subtitle: Text(
+                          alert.message,
+                          style: TextStyle(
+                            color: theme.colorScheme.onErrorContainer,
+                          ),
+                        ),
+                        onTap: () => context.go(alert.route),
+                      ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
             ],
             Card(
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   _PlanningTile(
@@ -155,7 +179,7 @@ class _PlanningHubPageState extends ConsumerState<PlanningHubPage> {
                     title: 'Compromissos',
                     subtitle: pending.isEmpty
                         ? 'Sem compromissos pendentes'
-                        : '${pending.length} pendentes · '
+                        : '${PluralFormatter.count(pending.length, 'pendente', 'pendentes')} · '
                               '${MoneyFormatter.formatXof(pendingTotal)}',
                     route: '/planning/commitments',
                   ),
@@ -168,7 +192,7 @@ class _PlanningHubPageState extends ConsumerState<PlanningHubPage> {
                         : '${formatMonth(month)} · Gasto '
                               '${MoneyFormatter.formatXof(budgetSpent)} de '
                               '${MoneyFormatter.formatXof(budgetLimit)}'
-                              '${exceeded > 0 ? ' · $exceeded excedido(s)' : ''}',
+                              '${exceeded > 0 ? ' · ${PluralFormatter.count(exceeded, 'excedido', 'excedidos')}' : ''}',
                     route: '/planning/budgets',
                   ),
                   const Divider(height: 1),
@@ -177,7 +201,8 @@ class _PlanningHubPageState extends ConsumerState<PlanningHubPage> {
                     title: 'Recorrências',
                     subtitle: rules.isEmpty
                         ? 'Sem regras recorrentes'
-                        : '$activeRules ativas de ${rules.length}',
+                        : '${PluralFormatter.count(activeRules, 'ativa', 'ativas')} de '
+                              '${PluralFormatter.count(rules.length, 'regra', 'regras')}',
                     route: '/planning/recurrences',
                   ),
                   const Divider(height: 1),
@@ -186,8 +211,7 @@ class _PlanningHubPageState extends ConsumerState<PlanningHubPage> {
                     title: 'Metas de poupança',
                     subtitle: goals.isEmpty
                         ? 'Sem metas definidas'
-                        : '${goals.length} '
-                              '${goals.length == 1 ? 'meta' : 'metas'}',
+                        : PluralFormatter.count(goals.length, 'meta', 'metas'),
                     route: '/planning/goals',
                   ),
                   const Divider(height: 1),
@@ -199,11 +223,21 @@ class _PlanningHubPageState extends ConsumerState<PlanningHubPage> {
                         : 'A pagar ${MoneyFormatter.formatXof(payable)} · '
                               'A receber ${MoneyFormatter.formatXof(receivable)}',
                     route: '/planning/debts',
+                    badge: openDebts.isEmpty
+                        ? null
+                        : StatusBadge(
+                            PluralFormatter.count(
+                              openDebts.length,
+                              'em aberto',
+                              'em aberto',
+                            ),
+                            tone: StatusTone.warning,
+                          ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               'Compromissos e ocorrências são previsões: só os movimentos '
               'reais alteram o saldo.',
@@ -222,20 +256,38 @@ class _PlanningTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.route,
+    this.badge,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final String route;
+  final Widget? badge;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ListTile(
-      leading: CircleAvatar(child: Icon(icon)),
+      leading: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: AppRadii.control,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Icon(icon, size: 22, color: theme.colorScheme.primary),
+        ),
+      ),
       title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
+      subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (badge != null) ...[badge!, const SizedBox(width: AppSpacing.xs)],
+          const Icon(Icons.chevron_right),
+        ],
+      ),
       onTap: () => context.push(route),
     );
   }

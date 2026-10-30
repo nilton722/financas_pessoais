@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_input_parser.dart';
@@ -150,11 +151,11 @@ class _DebtFormPageState extends ConsumerState<DebtFormPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.page,
               children: [
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
                   children: [
                     for (final kind in DebtKind.values)
                       ChoiceChip(
@@ -170,27 +171,25 @@ class _DebtFormPageState extends ConsumerState<DebtFormPage> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _descriptionController,
                   enabled: !_locked,
                   decoration: InputDecoration(
                     labelText: 'Descrição',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['description'],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _counterpartyController,
                   enabled: !_locked,
                   decoration: InputDecoration(
                     labelText: 'Contraparte (opcional)',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['counterparty'],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _amountController,
                   enabled: !_locked,
@@ -198,7 +197,6 @@ class _DebtFormPageState extends ConsumerState<DebtFormPage> {
                   decoration: InputDecoration(
                     labelText: 'Valor original',
                     suffixText: 'FCFA',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['originalAmount'],
                     helperText: 'Número inteiro, sem decimais.',
                   ),
@@ -223,14 +221,13 @@ class _DebtFormPageState extends ConsumerState<DebtFormPage> {
                     child: InputDecorator(
                       decoration: const InputDecoration(
                         labelText: 'Vencimento',
-                        border: OutlineInputBorder(),
                         suffixIcon: Icon(Icons.calendar_today_outlined),
                       ),
                       child: Text(formatDate(_dueDate!)),
                     ),
                   ),
                 if (_locked) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
                     'Esta dívida já está liquidada ou cancelada. '
                     'Para a alterar, reverta os movimentos associados.',
@@ -240,7 +237,7 @@ class _DebtFormPageState extends ConsumerState<DebtFormPage> {
                   ),
                 ],
                 if (_errors['form'] != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
                     _errors['form']!,
                     style: TextStyle(
@@ -248,7 +245,7 @@ class _DebtFormPageState extends ConsumerState<DebtFormPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 FilledButton(
                   onPressed: _saving || _locked ? null : _save,
                   child: Text(_saving ? 'A guardar…' : 'Guardar'),

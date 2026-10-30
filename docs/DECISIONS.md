@@ -137,3 +137,13 @@ Regras:
 - O build de release só é gerado depois de formatação, análise e testes verdes.
 - Instalar um APK com assinatura diferente da anterior obriga a desinstalar e perde a base privada; o manual exige backup antes da atualização.
 Motivo: preparar a distribuição Android sem publicar automaticamente nem expor segredos, mantendo um caminho reproduzível para validar o build localmente.
+
+## ADR-032 — Design system com tokens e política de apresentação de dados
+**Estado:** aceite. A aplicação passa a ter uma linguagem visual única em `lib/app/theme` — tokens de espaçamento e raios, tema Material 3 claro/escuro com identidade teal e superfícies areia, e a extensão `FinanceColors` para rendimento, transferência, aviso e saldo positivo. Os ecrãs compõem componentes partilhados (`MoneyText`, `SectionCard`, `AppDataRow`, `StatusBadge`, `EmptyState`) e não redefinem cores, raios, espaçamentos ou formatos. Referência completa: [DESIGN.md](DESIGN.md).
+Regras de apresentação:
+- Montantes exatos com agrupamento e `FCFA` em listas, formulários, detalhes, relatórios e exportações; notação compacta (`1,25 M FCFA`) apenas em cartões de resumo, com o valor exato preservado na semântica e nos detalhes.
+- Algarismos tabulares e alinhamento à direita; sinal explícito em variações e saldos negativos.
+- Percentagens em `pt_PT`, no máximo uma casa decimal, acompanhadas de estado textual e barra de progresso; contagens sempre pluralizadas.
+- Datas apresentadas `DD/MM/YYYY`; listas de movimentos agrupadas por dia com total diário.
+- Transferências, planeamento e previsão mantêm cores e rótulos próprios; a cor nunca é o único indicador de estado.
+Motivo: os ecrãs tinham estilos e formatos locais divergentes, o que tornava a comparação de valores difícil e a manutenção repetitiva. Centralizar tokens, componentes e formatters garante consistência, contraste nos dois modos e uma única regra testável para montantes, percentagens e datas. A alteração é apenas de apresentação: não muda o esquema SQLite, as regras financeiras nem a privacidade offline. Custo aceite: um novo ecrã deve reutilizar os componentes existentes em vez de criar o seu próprio estilo.

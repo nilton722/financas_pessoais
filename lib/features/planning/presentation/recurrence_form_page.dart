@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_input_parser.dart';
@@ -215,11 +216,11 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.page,
               children: [
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
                   children: [
                     for (final kind in PlannedItemKind.values)
                       ChoiceChip(
@@ -235,19 +236,18 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _amountController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: 'Valor por ocorrência',
                     suffixText: 'FCFA',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['amount'],
                     helperText: 'Número inteiro, sem decimais.',
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<RecurrenceFrequency>(
                   label: 'Frequência',
                   value: _frequency,
@@ -265,13 +265,12 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
                               frequency ?? RecurrenceFrequency.monthly,
                         ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 InkWell(
                   onTap: _lockedStructure ? null : _pickStart,
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: 'Início',
-                      border: const OutlineInputBorder(),
                       suffixIcon: const Icon(Icons.calendar_today_outlined),
                       helperText: _lockedStructure
                           ? 'Já existem ocorrências geradas; o início e a '
@@ -297,23 +296,21 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
                     child: InputDecorator(
                       decoration: InputDecoration(
                         labelText: 'Fim',
-                        border: const OutlineInputBorder(),
                         errorText: _errors['endDate'],
                         suffixIcon: const Icon(Icons.calendar_today_outlined),
                       ),
                       child: Text(formatDate(_endDate!)),
                     ),
                   ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _descriptionController,
                   decoration: InputDecoration(
                     labelText: 'Descrição',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['description'],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<String>(
                   label: 'Conta (opcional)',
                   value: _accountId ?? '',
@@ -332,7 +329,7 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
                     () => _accountId = (id == null || id.isEmpty) ? null : id,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<String>(
                   label: 'Categoria (opcional)',
                   value: _categoryId ?? '',
@@ -357,7 +354,7 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
                   ),
                 ),
                 if (_errors['form'] != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
                     _errors['form']!,
                     style: TextStyle(
@@ -365,7 +362,7 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 FilledButton(
                   onPressed: _saving ? null : _save,
                   child: Text(_saving ? 'A guardar…' : 'Guardar'),

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/money_text.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../domain/planned_item.dart';
 import 'planning_format.dart';
 import 'planning_providers.dart';
@@ -48,20 +51,39 @@ class _CommitmentsPageState extends ConsumerState<CommitmentsPage> {
         label: const Text('Novo compromisso'),
       ),
       body: switch (items) {
-        AsyncData(:final value) when value.isEmpty => EmptyState(
-          icon: Icons.event_note_outlined,
-          title: _showSettled
-              ? 'Sem compromissos'
-              : 'Sem compromissos pendentes',
-          message: _showSettled
-              ? 'Cria um compromisso para prever rendimentos ou despesas.'
-              : 'Tudo em dia. Os compromissos aparecem aqui até serem pagos.',
+        AsyncData(:final value) when value.isEmpty => Center(
+          child: SingleChildScrollView(
+            padding: AppSpacing.page,
+            child: EmptyState(
+              icon: Icons.event_note_outlined,
+              title: _showSettled
+                  ? 'Sem compromissos'
+                  : 'Sem compromissos pendentes',
+              message: _showSettled
+                  ? 'Cria um compromisso para prever rendimentos ou despesas.'
+                  : 'Tudo em dia. Os compromissos aparecem aqui até serem pagos.',
+              action: FilledButton.icon(
+                onPressed: () => context.push('/planning/commitments/new'),
+                icon: const Icon(Icons.add),
+                label: const Text('Novo compromisso'),
+              ),
+            ),
+          ),
         ),
-        AsyncData(:final value) => ListView(
-          padding: const EdgeInsets.only(bottom: 96),
-          children: [
-            for (final item in value)
-              _CommitmentTile(
+        AsyncData(:final value) => ListView.separated(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.xxl + AppSpacing.xxxl,
+          ),
+          itemCount: value.length,
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+          itemBuilder: (context, index) {
+            final item = value[index];
+            return Card(
+              clipBehavior: Clip.antiAlias,
+              child: _CommitmentTile(
                 item: item,
                 onEdit: () =>
                     context.push('/planning/commitments/${item.id}/edit'),
@@ -69,7 +91,8 @@ class _CommitmentsPageState extends ConsumerState<CommitmentsPage> {
                     context.push('/planning/commitments/${item.id}/pay'),
                 onCancel: () => _cancel(item),
               ),
-          ],
+            );
+          },
         ),
         AsyncError(:final error) => _ErrorView(
           error: error,
@@ -134,6 +157,7 @@ class _CommitmentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final income = item.kind == PlannedItemKind.income;
     final details = <String>[
       formatDate(item.dueDate),
       item.kind.label,
@@ -141,27 +165,72 @@ class _CommitmentTile extends StatelessWidget {
       if (item.accountName != null) item.accountName!,
     ].join(' · ');
     return ListTile(
-      leading: CircleAvatar(
-        child: Icon(
-          item.kind == PlannedItemKind.income
-              ? Icons.trending_up
-              : Icons.trending_down,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      leading: DecoratedBox(
+        decoration: BoxDecoration(
+          color: income
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.errorContainer,
+          borderRadius: AppRadii.control,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Icon(
+            income ? Icons.trending_up : Icons.trending_down,
+            size: 20,
+            color: income
+                ? theme.colorScheme.onPrimaryContainer
+                : theme.colorScheme.onErrorContainer,
+          ),
         ),
       ),
-      title: Text(item.description),
-      subtitle: Text(
-        '$details\n${item.effectiveStatus.label}'
-        '${item.paidTotal > 0 && item.isOpen ? ' · pago '
-                  '${MoneyFormatter.formatXof(item.paidTotal)}' : ''}',
+      title: Text(
+        item.description,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: AppSpacing.xxs),
+          Text(details, maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xxs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              StatusBadge(
+                item.effectiveStatus.label,
+                tone: _statusTone(item.effectiveStatus),
+              ),
+              if (item.paidTotal > 0 && item.isOpen)
+                Text(
+                  'pago ${MoneyFormatter.formatXof(item.paidTotal)}',
+                  style: theme.textTheme.labelSmall,
+                ),
+            ],
+          ),
+        ],
       ),
       isThreeLine: true,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            MoneyFormatter.formatXof(item.remaining),
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 116),
+            child: MoneyText(
+              item.remaining,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              tone: item.isOpen
+                  ? (income ? MoneyTone.income : MoneyTone.expense)
+                  : MoneyTone.neutral,
+              maxLines: 1,
             ),
           ),
           if (item.isOpen)
@@ -189,6 +258,13 @@ class _CommitmentTile extends StatelessWidget {
   }
 }
 
+StatusTone _statusTone(PlannedItemStatus status) => switch (status) {
+  PlannedItemStatus.planned => StatusTone.neutral,
+  PlannedItemStatus.partiallyPaid => StatusTone.warning,
+  PlannedItemStatus.paid => StatusTone.positive,
+  PlannedItemStatus.cancelled => StatusTone.danger,
+};
+
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.error, required this.onRetry});
 
@@ -202,12 +278,12 @@ class _ErrorView extends StatelessWidget {
         : 'Não foi possível carregar os compromissos.';
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: AppSpacing.page,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton(
               onPressed: onRetry,
               child: const Text('Tentar novamente'),

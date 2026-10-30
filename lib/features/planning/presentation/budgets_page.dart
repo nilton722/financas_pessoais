@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
-import '../../../core/formatters/money_formatter.dart';
 import '../../../core/formatters/money_input_parser.dart';
+import '../../../core/widgets/app_data_row.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/money_text.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../domain/budget.dart';
 import 'planning_format.dart';
 import 'planning_providers.dart';
@@ -39,7 +42,10 @@ class BudgetsPage extends ConsumerWidget {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
             child: Row(
               children: [
                 IconButton(
@@ -49,10 +55,15 @@ class BudgetsPage extends ConsumerWidget {
                       ref.read(budgetMonthProvider.notifier).previous(),
                 ),
                 Expanded(
-                  child: Text(
-                    formatMonth(month),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium,
+                  child: Column(
+                    children: [
+                      Text('Orçamentos de', style: theme.textTheme.labelSmall),
+                      Text(
+                        formatMonth(month),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(
@@ -66,22 +77,39 @@ class BudgetsPage extends ConsumerWidget {
           ),
           Expanded(
             child: switch (budgets) {
-              AsyncData(:final value) when value.isEmpty => EmptyState(
-                icon: Icons.pie_chart_outline,
-                title: 'Sem orçamentos em ${formatMonth(month)}',
-                message:
-                    'Define um limite por categoria de despesa. '
-                    'O gasto é calculado a partir dos movimentos reais.',
+              AsyncData(:final value) when value.isEmpty => Center(
+                child: SingleChildScrollView(
+                  padding: AppSpacing.page,
+                  child: EmptyState(
+                    icon: Icons.pie_chart_outline,
+                    title: 'Sem orçamentos em ${formatMonth(month)}',
+                    message:
+                        'Define um limite por categoria de despesa. '
+                        'O gasto é calculado a partir dos movimentos reais.',
+                    action: FilledButton.icon(
+                      onPressed: () => context.push('/planning/budgets/new'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Novo orçamento'),
+                    ),
+                  ),
+                ),
               ),
               AsyncData(:final value) => ListView(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 96),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                  AppSpacing.lg,
+                  AppSpacing.xxl + AppSpacing.xxxl,
+                ),
                 children: [
-                  for (final budget in value)
+                  for (final budget in value) ...[
                     _BudgetCard(
                       budget: budget,
                       onEditLimit: () => _editLimit(context, ref, budget),
                       onRemove: () => _remove(context, ref, budget),
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
                 ],
               ),
               AsyncError(:final error) => _ErrorView(
@@ -117,7 +145,6 @@ class BudgetsPage extends ConsumerWidget {
             decoration: InputDecoration(
               labelText: 'Limite mensal',
               suffixText: 'FCFA',
-              border: const OutlineInputBorder(),
               errorText: error,
             ),
           ),
@@ -230,10 +257,16 @@ class _BudgetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tone = budget.isExceeded ? StatusTone.danger : StatusTone.neutral;
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.xs,
+          AppSpacing.md,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -245,6 +278,7 @@ class _BudgetCard extends StatelessWidget {
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
+                StatusBadge(formatPercentage(budget.percent), tone: tone),
                 PopupMenuButton<String>(
                   tooltip: 'Opções',
                   onSelected: (value) {
@@ -264,16 +298,26 @@ class _BudgetCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${MoneyFormatter.formatXof(budget.spent)} de '
-              '${MoneyFormatter.formatXof(budget.limitAmount)} · '
-              '${formatPercentage(budget.percent)}',
-              style: theme.textTheme.bodyMedium,
+            const SizedBox(height: AppSpacing.xs),
+            AppDataRow(
+              label: 'Gasto',
+              value: MoneyText(
+                budget.spent,
+                style: theme.textTheme.bodyMedium,
+                maxLines: 1,
+              ),
             ),
-            const SizedBox(height: 8),
+            AppDataRow(
+              label: 'Limite',
+              value: MoneyText(
+                budget.limitAmount,
+                style: theme.textTheme.bodyMedium,
+                maxLines: 1,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: AppRadii.small,
               child: LinearProgressIndicator(
                 value: budget.progress,
                 minHeight: 8,
@@ -282,15 +326,35 @@ class _BudgetCard extends StatelessWidget {
                     : theme.colorScheme.primary,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              budget.isExceeded
-                  ? 'Excedido em '
-                        '${MoneyFormatter.formatXof(-budget.remaining)}'
-                  : 'Restam ${MoneyFormatter.formatXof(budget.remaining)}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: budget.isExceeded ? theme.colorScheme.error : null,
-              ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Icon(
+                  budget.isExceeded
+                      ? Icons.error_outline
+                      : Icons.check_circle_outline,
+                  size: 16,
+                  color: budget.isExceeded
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.primary,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  budget.isExceeded ? 'Excedido em' : 'Restam',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                MoneyText(
+                  budget.isExceeded ? -budget.remaining : budget.remaining,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  tone: budget.isExceeded
+                      ? MoneyTone.expense
+                      : MoneyTone.income,
+                  maxLines: 1,
+                ),
+              ],
             ),
           ],
         ),
@@ -312,12 +376,12 @@ class _ErrorView extends StatelessWidget {
         : 'Não foi possível carregar os orçamentos.';
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: AppSpacing.page,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton(
               onPressed: onRetry,
               child: const Text('Tentar novamente'),

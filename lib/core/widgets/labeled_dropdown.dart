@@ -10,6 +10,7 @@ class LabeledDropdown<T> extends StatelessWidget {
     required this.items,
     required this.onChanged,
     this.errorText,
+    this.hint = 'Selecionar',
   });
 
   final String label;
@@ -17,21 +18,24 @@ class LabeledDropdown<T> extends StatelessWidget {
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?> onChanged;
   final String? errorText;
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        errorText: errorText,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      ),
+      decoration: InputDecoration(labelText: label, errorText: errorText),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           isExpanded: true,
           isDense: true,
           value: value,
+          hint: Text(
+            hint,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           items: items,
           onChanged: onChanged,
         ),

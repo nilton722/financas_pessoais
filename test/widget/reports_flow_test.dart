@@ -61,7 +61,7 @@ void main() {
     expect(find.byKey(const Key('report-summary')), findsOneWidget);
     expect(find.text('Salário'), findsOneWidget);
     expect(find.text('Alimentação'), findsOneWidget);
-    expect(find.textContaining('2 movimento(s)'), findsOneWidget);
+    expect(find.textContaining('2 movimentos'), findsOneWidget);
     expect(
       find.textContaining(MoneyFormatter.formatXof(88000)),
       findsWidgets,

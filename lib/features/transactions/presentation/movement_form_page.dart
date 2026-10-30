@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_input_parser.dart';
@@ -225,11 +226,11 @@ class _MovementFormPageState extends ConsumerState<MovementFormPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.page,
               children: [
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
                   children: [
                     for (final kind in MovementKind.values)
                       ChoiceChip(
@@ -246,7 +247,7 @@ class _MovementFormPageState extends ConsumerState<MovementFormPage> {
                   ],
                 ),
                 if (_errors['kind'] != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     _errors['kind']!,
                     style: TextStyle(
@@ -254,25 +255,23 @@ class _MovementFormPageState extends ConsumerState<MovementFormPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _amountController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: 'Montante',
                     suffixText: 'FCFA',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['amount'],
                     helperText: 'Número inteiro, sem decimais.',
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 InkWell(
                   onTap: _pickDate,
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: 'Data',
-                      border: const OutlineInputBorder(),
                       errorText: _errors['date'],
                       suffixIcon: const Icon(Icons.calendar_today_outlined),
                     ),
@@ -283,7 +282,7 @@ class _MovementFormPageState extends ConsumerState<MovementFormPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<String>(
                   label: _kind.isTransfer ? 'Conta de origem' : 'Conta',
                   value: _accountId,
@@ -303,7 +302,7 @@ class _MovementFormPageState extends ConsumerState<MovementFormPage> {
                   onChanged: (id) => setState(() => _accountId = id),
                 ),
                 if (_kind.isTransfer) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   LabeledDropdown<String>(
                     label: 'Conta de destino',
                     value: _destinationId,
@@ -323,7 +322,7 @@ class _MovementFormPageState extends ConsumerState<MovementFormPage> {
                     onChanged: (id) => setState(() => _destinationId = id),
                   ),
                 ] else ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   LabeledDropdown<String>(
                     label: 'Categoria',
                     value: _categoryId,
@@ -343,29 +342,27 @@ class _MovementFormPageState extends ConsumerState<MovementFormPage> {
                     onChanged: (id) => setState(() => _categoryId = id),
                   ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _descriptionController,
                   decoration: InputDecoration(
                     labelText: 'Descrição (opcional)',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['description'],
                   ),
                 ),
                 if (!_kind.isTransfer) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   TextField(
                     controller: _notesController,
                     maxLines: 3,
                     decoration: InputDecoration(
                       labelText: 'Notas (opcional)',
-                      border: const OutlineInputBorder(),
                       errorText: _errors['notes'],
                     ),
                   ),
                 ],
                 if (_errors['form'] != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
                     _errors['form']!,
                     style: TextStyle(
@@ -373,7 +370,7 @@ class _MovementFormPageState extends ConsumerState<MovementFormPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 FilledButton(
                   onPressed: _saving ? null : _save,
                   child: Text(_saving ? 'A guardar…' : 'Guardar'),

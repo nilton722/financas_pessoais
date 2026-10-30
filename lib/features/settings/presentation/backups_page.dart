@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/backup/backup_format.dart';
 import '../../../core/backup/backup_service.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
+import '../../../core/formatters/plural_formatter.dart';
+import '../../../core/widgets/app_data_row.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/section_card.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../../accounts/presentation/accounts_providers.dart';
 import '../../forecast/presentation/forecast_providers.dart';
 import '../../planning/presentation/planning_providers.dart';
@@ -54,82 +59,85 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
           await ref.read(backupListProvider.future);
         },
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.xxl,
+          ),
           children: [
             if (_busy) const LinearProgressIndicator(),
-            const SizedBox(height: 8),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.shield_outlined,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Backup local e versionado',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'O backup inclui contas, categorias, movimentos, '
-                      'planeamento, metas, dívidas e configurações. O '
-                      'ficheiro é JSON legível e não é cifrado.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      'Pasta: ${directory.value ?? '…'}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Copie os ficheiros para um local seguro (computador, '
-                      'cartão ou armazenamento externo). Sem essa cópia, '
-                      'perder o dispositivo significa perder os dados.',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      key: const Key('backup-create'),
-                      onPressed: _busy ? null : _create,
-                      icon: const Icon(Icons.save_outlined),
-                      label: const Text('Criar backup agora'),
-                    ),
-                  ],
-                ),
+            if (_busy) const SizedBox(height: AppSpacing.sm),
+            SectionCard(
+              leading: Icon(
+                Icons.shield_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: 'Backup local e versionado',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'O backup inclui contas, categorias, movimentos, '
+                    'planeamento, metas, dívidas e configurações. O '
+                    'ficheiro é JSON legível e não é cifrado.',
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  SelectableText(
+                    'Pasta: ${directory.value ?? '…'}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Copie os ficheiros para um local seguro (computador, '
+                    'cartão ou armazenamento externo). Sem essa cópia, '
+                    'perder o dispositivo significa perder os dados.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  FilledButton.icon(
+                    key: const Key('backup-create'),
+                    onPressed: _busy ? null : _create,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Criar backup agora'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Backups neste dispositivo',
-              style: theme.textTheme.titleMedium,
+            const SizedBox(height: AppSpacing.xl),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Backups neste dispositivo',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                if (backups.hasValue && backups.value!.isNotEmpty)
+                  StatusBadge(
+                    PluralFormatter.count(
+                      backups.value!.length,
+                      'ficheiro',
+                      'ficheiros',
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             switch (backups) {
               AsyncData(:final value) when value.isEmpty => const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: EmptyState(
-                    icon: Icons.inventory_2_outlined,
-                    title: 'Ainda sem backups',
-                    message:
-                        'Crie o primeiro backup e copie-o para fora do '
-                        'dispositivo.',
-                  ),
+                clipBehavior: Clip.antiAlias,
+                child: EmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'Ainda sem backups',
+                  message:
+                      'Crie o primeiro backup e copie-o para fora do '
+                      'dispositivo.',
                 ),
               ),
               AsyncData(:final value) => Card(
                 key: const Key('backup-list'),
+                clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
                     for (final item in value) ...[
@@ -144,11 +152,11 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
               ),
               AsyncError(:final error) => Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: AppSpacing.card,
                   child: Column(
                     children: [
-                      Text(_message(error)),
-                      const SizedBox(height: 12),
+                      Text(_message(error), textAlign: TextAlign.center),
+                      const SizedBox(height: AppSpacing.md),
                       FilledButton(
                         onPressed: () => ref.invalidate(backupListProvider),
                         child: const Text('Tentar novamente'),
@@ -158,7 +166,7 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
                 ),
               ),
               _ => const Padding(
-                padding: EdgeInsets.all(24),
+                padding: EdgeInsets.all(AppSpacing.xl),
                 child: Center(child: CircularProgressIndicator()),
               ),
             },
@@ -180,7 +188,7 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
         SnackBar(
           content: Text(
             'Backup criado: ${item.file.fileName} '
-            '(${item.totalRows} registos).',
+            '(${PluralFormatter.count(item.totalRows, 'registo', 'registos')}).',
           ),
         ),
       );
@@ -225,7 +233,8 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
         title: const Text('Restaurar este backup?'),
         content: Text(
           'Todos os dados atuais serão substituídos pelos dados do backup '
-          '${item.file.fileName}, criado em ${_formatDateTime(item.snapshot!.createdAt)}.\n\n'
+          '${item.file.fileName}, criado em '
+          '${_formatDateTime(item.snapshot!.createdAt)}.\n\n'
           'Antes de substituir, a aplicação cria automaticamente uma cópia '
           'de segurança da base atual. Ainda assim, confirme que é o '
           'ficheiro certo: a substituição não pode ser anulada dentro da '
@@ -270,8 +279,9 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
         builder: (dialogContext) => AlertDialog(
           title: const Text('Backup restaurado'),
           content: Text(
-            'Os dados foram substituídos por ${outcome.snapshot.totalRows} '
-            'registos do backup.\n\n'
+            'Os dados foram substituídos por '
+            '${PluralFormatter.count(outcome.snapshot.totalRows, 'registo', 'registos')} '
+            'do backup.\n\n'
             'Cópia automática da base anterior: '
             '${outcome.safetyBackup.fileName}.\n\n'
             'Se restaurou por engano, pode abrir essa cópia na lista e '
@@ -333,18 +343,36 @@ class _BackupTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final snapshot = item.snapshot;
+    final valid = item.isValid;
     return ListTile(
-      leading: Icon(
-        item.isValid ? Icons.check_circle_outline : Icons.error_outline,
-        color: item.isValid
-            ? theme.colorScheme.primary
-            : theme.colorScheme.error,
+      leading: DecoratedBox(
+        decoration: BoxDecoration(
+          color: valid
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.errorContainer,
+          borderRadius: AppRadii.control,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Icon(
+            valid ? Icons.check_circle_outline : Icons.error_outline,
+            size: 20,
+            color: valid
+                ? theme.colorScheme.onPrimaryContainer
+                : theme.colorScheme.onErrorContainer,
+          ),
+        ),
       ),
-      title: Text(item.file.fileName),
+      title: Text(
+        item.file.fileName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       subtitle: Text(
-        item.isValid
+        valid
             ? '${_formatDateTime(snapshot!.createdAt)} · '
-                  '${item.totalRows} registos · ${_formatSize(item.file.sizeBytes)}'
+                  '${PluralFormatter.count(item.totalRows, 'registo', 'registos')} · '
+                  '${_formatSize(item.file.sizeBytes)}'
             : item.error ?? 'Backup inválido',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
@@ -381,28 +409,37 @@ class _BackupDetails extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Criado em ${_formatDateTime(snapshot.createdAt)}'),
-        const SizedBox(height: 4),
-        Text(
-          'Versão da app ${snapshot.appVersion} · '
-          'esquema v$backupSchemaVersion',
+        AppDataRow(
+          label: 'Criado em',
+          value: Text(_formatDateTime(snapshot.createdAt)),
         ),
-        const SizedBox(height: 4),
-        Text(
-          '${snapshot.totalRows} registos · '
-          '${_formatSize(item.file.sizeBytes)}',
+        AppDataRow(
+          label: 'Versão',
+          value: Text(
+            'app ${snapshot.appVersion} · esquema v$backupSchemaVersion',
+          ),
         ),
-        const SizedBox(height: 4),
-        Text('Integridade verificada (${snapshot.checksum}).'),
-        const SizedBox(height: 12),
+        AppDataRow(
+          label: 'Dimensão',
+          value: Text(
+            '${PluralFormatter.count(snapshot.totalRows, 'registo', 'registos')} · '
+            '${_formatSize(item.file.sizeBytes)}',
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Integridade verificada (${snapshot.checksum}).',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: AppSpacing.md),
         Text('Conteúdo', style: theme.textTheme.titleSmall),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           counts.isEmpty
               ? 'Backup sem dados de utilizador.'
               : counts.join(', '),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         Text(
           'Ao restaurar, os dados atuais são substituídos. É criada uma cópia '
           'automática antes da substituição.',

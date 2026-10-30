@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_input_parser.dart';
@@ -103,7 +104,7 @@ class _BudgetFormPageState extends ConsumerState<BudgetFormPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Novo orçamento')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppSpacing.page,
         children: [
           LabeledDropdown<String>(
             label: 'Categoria de despesa',
@@ -118,26 +119,24 @@ class _BudgetFormPageState extends ConsumerState<BudgetFormPage> {
             ],
             onChanged: (id) => setState(() => _categoryId = id),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           InkWell(
             onTap: _pickMonth,
             child: InputDecorator(
               decoration: const InputDecoration(
                 labelText: 'Mês',
-                border: OutlineInputBorder(),
                 suffixIcon: Icon(Icons.calendar_today_outlined),
               ),
               child: Text(formatMonth(_month)),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           TextField(
             controller: _limitController,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               labelText: 'Limite mensal',
               suffixText: 'FCFA',
-              border: const OutlineInputBorder(),
               errorText: _errors['limitAmount'],
               helperText:
                   'Se já existir um orçamento para esta categoria e mês, '
@@ -145,13 +144,13 @@ class _BudgetFormPageState extends ConsumerState<BudgetFormPage> {
             ),
           ),
           if (_errors['form'] != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               _errors['form']!,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.xl),
           FilledButton(
             onPressed: _saving ? null : _save,
             child: Text(_saving ? 'A guardar…' : 'Guardar'),

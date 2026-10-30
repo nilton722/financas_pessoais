@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/money_input_parser.dart';
@@ -142,18 +143,17 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.page,
               children: [
                 TextField(
                   controller: _nameController,
                   decoration: InputDecoration(
                     labelText: 'Nome',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['name'],
                   ),
                   textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<AccountType>(
                   label: 'Tipo',
                   value: _type,
@@ -164,25 +164,23 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
                   onChanged: (type) =>
                       setState(() => _type = type ?? AccountType.cash),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _balanceController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: 'Saldo inicial',
                     suffixText: 'FCFA',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['openingBalance'],
                     helperText: 'Número inteiro, sem decimais.',
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 InkWell(
                   onTap: _pickDate,
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: 'Data de abertura',
-                      border: const OutlineInputBorder(),
                       errorText: _errors['openingDate'],
                       suffixIcon: const Icon(Icons.calendar_today_outlined),
                     ),
@@ -193,15 +191,12 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 const InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'Moeda',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: Text('XOF (FCFA)'),
+                  decoration: InputDecoration(labelText: 'Moeda'),
+                  child: Text('FCFA (XOF)'),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 FilledButton(
                   onPressed: _saving ? null : _save,
                   child: Text(_saving ? 'A guardar…' : 'Guardar'),

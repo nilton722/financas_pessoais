@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/money_text.dart';
+import '../../../core/widgets/section_card.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../domain/debt.dart';
 import 'planning_format.dart';
 import 'planning_providers.dart';
@@ -45,12 +49,22 @@ class _DebtsPageState extends ConsumerState<DebtsPage> {
         label: const Text('Nova dívida'),
       ),
       body: switch (debts) {
-        AsyncData(:final value) when value.isEmpty => const EmptyState(
-          icon: Icons.handshake_outlined,
-          title: 'Sem dívidas',
-          message:
-              'Regista valores a pagar ou a receber. O pendente é '
-              'calculado a partir dos pagamentos reais.',
+        AsyncData(:final value) when value.isEmpty => Center(
+          child: SingleChildScrollView(
+            padding: AppSpacing.page,
+            child: EmptyState(
+              icon: Icons.handshake_outlined,
+              title: 'Sem dívidas',
+              message:
+                  'Regista valores a pagar ou a receber. O pendente é '
+                  'calculado a partir dos pagamentos reais.',
+              action: FilledButton.icon(
+                onPressed: () => context.push('/planning/debts/new'),
+                icon: const Icon(Icons.add),
+                label: const Text('Nova dívida'),
+              ),
+            ),
+          ),
         ),
         AsyncData(:final value) => _DebtsList(
           debts: _showSettled
@@ -121,10 +135,15 @@ class _DebtsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (debts.isEmpty) {
-      return EmptyState(
-        icon: Icons.check_circle_outline,
-        title: 'Sem dívidas em aberto',
-        message: 'Ativa o filtro para ver as dívidas liquidadas.',
+      return Center(
+        child: SingleChildScrollView(
+          padding: AppSpacing.page,
+          child: const EmptyState(
+            icon: Icons.check_circle_outline,
+            title: 'Sem dívidas em aberto',
+            message: 'Ativa o filtro para ver as dívidas liquidadas.',
+          ),
+        ),
       );
     }
     final payable = debts
@@ -134,24 +153,98 @@ class _DebtsList extends StatelessWidget {
         .where((debt) => debt.kind == DebtKind.receivable && debt.isOpen)
         .fold(0, (total, debt) => total + debt.remaining);
     return ListView(
-      padding: const EdgeInsets.only(bottom: 96),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xxl + AppSpacing.xxxl,
+      ),
       children: [
-        if (payable > 0 || receivable > 0)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(
-              'A pagar ${MoneyFormatter.formatXof(payable)} · '
-              'A receber ${MoneyFormatter.formatXof(receivable)}',
-              style: Theme.of(context).textTheme.bodyMedium,
+        if (payable > 0 || receivable > 0) ...[
+          SectionCard(
+            title: 'Resumo',
+            child: Row(
+              children: [
+                Expanded(
+                  child: _DebtTotal(
+                    label: 'A pagar',
+                    amount: payable,
+                    tone: MoneyTone.expense,
+                    icon: Icons.call_made,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _DebtTotal(
+                    label: 'A receber',
+                    amount: receivable,
+                    tone: MoneyTone.income,
+                    icon: Icons.call_received,
+                  ),
+                ),
+              ],
             ),
           ),
-        for (final debt in debts)
-          _DebtTile(
-            debt: debt,
-            onEdit: () => onEdit(debt),
-            onPay: () => onPay(debt),
-            onCancel: () => onCancel(debt),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        for (final debt in debts) ...[
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: _DebtTile(
+              debt: debt,
+              onEdit: () => onEdit(debt),
+              onPay: () => onPay(debt),
+              onCancel: () => onCancel(debt),
+            ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+      ],
+    );
+  }
+}
+
+class _DebtTotal extends StatelessWidget {
+  const _DebtTotal({
+    required this.label,
+    required this.amount,
+    required this.tone,
+    required this.icon,
+  });
+
+  final String label;
+  final int amount;
+  final MoneyTone tone;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: AppSpacing.xs),
+            Flexible(
+              child: Text(
+                label,
+                style: theme.textTheme.labelMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        MoneyText(
+          amount,
+          style: theme.textTheme.titleSmall,
+          tone: tone,
+          textAlign: TextAlign.start,
+          maxLines: 1,
+        ),
       ],
     );
   }
@@ -173,29 +266,84 @@ class _DebtTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final payable = debt.kind == DebtKind.payable;
     final details = <String>[
       if (debt.counterparty != null) debt.counterparty!,
       if (debt.dueDate != null) 'vence ${formatDate(debt.dueDate!)}',
-      debt.effectiveStatus.label,
-      if (debt.paidTotal > 0)
-        'pago ${MoneyFormatter.formatXof(debt.paidTotal)}',
     ].join(' · ');
     return ListTile(
-      leading: CircleAvatar(
-        child: Icon(
-          debt.kind == DebtKind.payable ? Icons.call_made : Icons.call_received,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      leading: DecoratedBox(
+        decoration: BoxDecoration(
+          color: payable
+              ? theme.colorScheme.errorContainer
+              : theme.colorScheme.primaryContainer,
+          borderRadius: AppRadii.control,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Icon(
+            payable ? Icons.call_made : Icons.call_received,
+            size: 20,
+            color: payable
+                ? theme.colorScheme.onErrorContainer
+                : theme.colorScheme.onPrimaryContainer,
+          ),
         ),
       ),
-      title: Text('${debt.description} · ${debt.kind.label}'),
-      subtitle: Text(details),
-      isThreeLine: details.length > 40,
+      title: Text(
+        '${debt.description} · ${debt.kind.label}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(details, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ],
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xxs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              StatusBadge(
+                debt.effectiveStatus.label,
+                tone: debt.effectiveStatus == DebtStatus.open
+                    ? StatusTone.warning
+                    : debt.effectiveStatus == DebtStatus.paid
+                    ? StatusTone.positive
+                    : StatusTone.danger,
+              ),
+              if (debt.paidTotal > 0)
+                Text(
+                  'pago ${MoneyFormatter.formatXof(debt.paidTotal)}',
+                  style: theme.textTheme.labelSmall,
+                ),
+            ],
+          ),
+        ],
+      ),
+      isThreeLine: true,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            MoneyFormatter.formatXof(debt.remaining),
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 116),
+            child: MoneyText(
+              debt.remaining,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              tone: debt.isOpen
+                  ? (payable ? MoneyTone.expense : MoneyTone.income)
+                  : MoneyTone.neutral,
+              maxLines: 1,
             ),
           ),
           if (debt.isOpen)
@@ -233,12 +381,12 @@ class _ErrorView extends StatelessWidget {
         : 'Não foi possível carregar as dívidas.';
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: AppSpacing.page,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton(
               onPressed: onRetry,
               child: const Text('Tentar novamente'),

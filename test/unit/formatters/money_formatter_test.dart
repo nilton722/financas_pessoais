@@ -31,4 +31,59 @@ void main() {
       );
     });
   });
+
+  group('MoneyFormatter.formatXofSigned', () {
+    test('mostra o sinal em entradas positivas', () {
+      expect(_normalize(MoneyFormatter.formatXofSigned(12500)), '+12 500 FCFA');
+    });
+
+    test('mantém o sinal negativo e o zero', () {
+      expect(
+        _normalize(MoneyFormatter.formatXofSigned(-12500)),
+        '-12 500 FCFA',
+      );
+      expect(MoneyFormatter.formatXofSigned(0), '0 FCFA');
+    });
+  });
+
+  group('MoneyFormatter.formatXofCompact', () {
+    test('abaixo de um milhão mantém o valor exato', () {
+      expect(
+        _normalize(MoneyFormatter.formatXofCompact(999999)),
+        '999 999 FCFA',
+      );
+    });
+
+    test('usa milhões com vírgula decimal portuguesa', () {
+      expect(
+        _normalize(MoneyFormatter.formatXofCompact(1250000)),
+        '1,25 M FCFA',
+      );
+    });
+
+    test('usa mil milhões acima de 10^9', () {
+      expect(
+        _normalize(MoneyFormatter.formatXofCompact(1250000000)),
+        '1,25 mil M FCFA',
+      );
+    });
+
+    test('preserva o sinal negativo', () {
+      expect(
+        _normalize(MoneyFormatter.formatXofCompact(-7500000)),
+        '-7,5 M FCFA',
+      );
+    });
+
+    test('versão com sinal explícito', () {
+      expect(
+        _normalize(MoneyFormatter.formatXofCompactSigned(2500000)),
+        '+2,5 M FCFA',
+      );
+      expect(
+        _normalize(MoneyFormatter.formatXofCompactSigned(-2500000)),
+        '-2,5 M FCFA',
+      );
+    });
+  });
 }

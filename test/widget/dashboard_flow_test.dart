@@ -86,7 +86,7 @@ void main() {
     expect(find.text('Metas de poupança'), findsOneWidget);
     expect(
       find.textContaining(
-        '1 meta(s) · ${MoneyFormatter.formatXof(70000)} de '
+        '1 meta · ${MoneyFormatter.formatXof(70000)} de '
         '${MoneyFormatter.formatXof(200000)}',
       ),
       findsOneWidget,

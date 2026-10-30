@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
-import '../../../core/formatters/money_formatter.dart';
 import '../../../core/formatters/money_input_parser.dart';
+import '../../../core/widgets/app_data_row.dart';
 import '../../../core/widgets/labeled_dropdown.dart';
+import '../../../core/widgets/money_text.dart';
+import '../../../core/widgets/section_card.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/presentation/accounts_providers.dart';
 import '../../categories/domain/category.dart';
@@ -160,43 +163,52 @@ class _PayDebtPageState extends ConsumerState<PayDebtPage> {
           : debt == null
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: AppSpacing.page,
                 child: Text(_errors['form'] ?? 'Dívida não encontrada.'),
               ),
             )
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.page,
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${debt.description} · ${debt.kind.label}',
-                          style: Theme.of(context).textTheme.titleMedium,
+                SectionCard(
+                  title: '${debt.description} · ${debt.kind.label}',
+                  subtitle: [
+                    if (debt.counterparty != null) debt.counterparty!,
+                    if (debt.dueDate != null)
+                      'vence ${formatDate(debt.dueDate!)}',
+                  ].join(' · '),
+                  child: Column(
+                    children: [
+                      AppDataRow(
+                        label: 'Valor',
+                        value: MoneyText(
+                          debt.originalAmount,
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
-                        if (debt.counterparty != null) ...[
-                          const SizedBox(height: 4),
-                          Text(debt.counterparty!),
-                        ],
-                        if (debt.dueDate != null) ...[
-                          const SizedBox(height: 4),
-                          Text('vence ${formatDate(debt.dueDate!)}'),
-                        ],
-                        const SizedBox(height: 8),
-                        Text(
-                          'Valor '
-                          '${MoneyFormatter.formatXof(debt.originalAmount)} · '
-                          'pago ${MoneyFormatter.formatXof(debt.paidTotal)} · '
-                          'falta ${MoneyFormatter.formatXof(debt.remaining)}',
+                      ),
+                      AppDataRow(
+                        label: 'Pago',
+                        value: MoneyText(
+                          debt.paidTotal,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          tone: MoneyTone.income,
                         ),
-                      ],
-                    ),
+                      ),
+                      AppDataRow(
+                        label: 'Falta',
+                        value: MoneyText(
+                          debt.remaining,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          tone: debt.isOpen
+                              ? MoneyTone.warning
+                              : MoneyTone.neutral,
+                        ),
+                        emphasize: debt.isOpen,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _amountController,
                   enabled: debt.isOpen,
@@ -204,25 +216,23 @@ class _PayDebtPageState extends ConsumerState<PayDebtPage> {
                   decoration: InputDecoration(
                     labelText: 'Valor do pagamento',
                     suffixText: 'FCFA',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['amount'],
                     helperText: 'Pagamento total ou parcial, até ao restante.',
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 InkWell(
                   onTap: debt.isOpen ? _pickDate : null,
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: 'Data do pagamento',
-                      border: const OutlineInputBorder(),
                       errorText: _errors['date'],
                       suffixIcon: const Icon(Icons.calendar_today_outlined),
                     ),
                     child: Text(formatDate(_date)),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<String>(
                   label: 'Conta',
                   value: accountId,
@@ -241,7 +251,7 @@ class _PayDebtPageState extends ConsumerState<PayDebtPage> {
                       ? (id) => setState(() => _accountId = id)
                       : (_) {},
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 LabeledDropdown<String>(
                   label: 'Categoria',
                   value: categoryId,
@@ -260,18 +270,17 @@ class _PayDebtPageState extends ConsumerState<PayDebtPage> {
                       ? (id) => setState(() => _categoryId = id)
                       : (_) {},
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _descriptionController,
                   enabled: debt.isOpen,
                   decoration: InputDecoration(
                     labelText: 'Descrição do movimento',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['description'],
                   ),
                 ),
                 if (_errors['form'] != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
                     _errors['form']!,
                     style: TextStyle(
@@ -279,7 +288,7 @@ class _PayDebtPageState extends ConsumerState<PayDebtPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 FilledButton(
                   onPressed: _saving || !debt.isOpen ? null : _save,
                   child: Text(_saving ? 'A registar…' : 'Registar pagamento'),

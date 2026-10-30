@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
-import '../../../core/formatters/money_formatter.dart';
+import '../../../core/widgets/app_data_row.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/money_text.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../domain/savings_goal.dart';
 import 'planning_format.dart';
 import 'planning_providers.dart';
@@ -39,23 +42,43 @@ class SavingsGoalsPage extends ConsumerWidget {
         label: const Text('Nova meta'),
       ),
       body: switch (goals) {
-        AsyncData(:final value) when value.isEmpty => const EmptyState(
-          icon: Icons.savings_outlined,
-          title: 'Sem metas',
-          message:
-              'Define um alvo e associa uma conta de poupança para '
-              'acompanhar o progresso a partir do saldo real.',
+        AsyncData(:final value) when value.isEmpty => Center(
+          child: SingleChildScrollView(
+            padding: AppSpacing.page,
+            child: EmptyState(
+              icon: Icons.savings_outlined,
+              title: 'Sem metas',
+              message:
+                  'Define um alvo e associa uma conta de poupança para '
+                  'acompanhar o progresso a partir do saldo real.',
+              action: FilledButton.icon(
+                onPressed: () => context.push('/planning/goals/new'),
+                icon: const Icon(Icons.add),
+                label: const Text('Nova meta'),
+              ),
+            ),
+          ),
         ),
-        AsyncData(:final value) => ListView(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
-          children: [
-            for (final goal in value)
-              _GoalCard(
+        AsyncData(:final value) => ListView.separated(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.xxl + AppSpacing.xxxl,
+          ),
+          itemCount: value.length,
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+          itemBuilder: (context, index) {
+            final goal = value[index];
+            return Card(
+              clipBehavior: Clip.antiAlias,
+              child: _GoalCard(
                 goal: goal,
                 onEdit: () => context.push('/planning/goals/${goal.id}/edit'),
                 onToggleArchive: () => _toggleArchive(context, ref, goal),
               ),
-          ],
+            );
+          },
         ),
         AsyncError(:final error) => _ErrorView(
           error: error,
@@ -131,70 +154,107 @@ class _GoalCard extends StatelessWidget {
     final details = <String>[
       if (goal.targetDate != null) 'Até ${formatDate(goal.targetDate!)}',
       if (goal.linkedAccountName != null) goal.linkedAccountName!,
-      if (goal.isArchived) 'Arquivada',
     ].join(' · ');
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onEdit,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                child: Icon(
-                  goal.isReached
-                      ? Icons.check_circle_outline
-                      : Icons.savings_outlined,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(goal.name, style: theme.textTheme.titleMedium),
-                    if (details.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(details, style: theme.textTheme.bodySmall),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      '${MoneyFormatter.formatXof(goal.currentAmount)} de '
-                      '${MoneyFormatter.formatXof(goal.targetAmount)} · '
-                      '${formatPercentage(goal.progress * 100)}',
-                      style: theme.textTheme.bodyMedium,
+    return InkWell(
+      onTap: onEdit,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.xs,
+          AppSpacing.md,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: goal.isReached
+                        ? theme.colorScheme.primaryContainer
+                        : theme.colorScheme.surfaceContainerHigh,
+                    borderRadius: AppRadii.control,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    child: Icon(
+                      goal.isReached
+                          ? Icons.check_circle_outline
+                          : Icons.savings_outlined,
+                      size: 20,
+                      color: goal.isReached
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.primary,
                     ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: goal.progress,
-                        minHeight: 8,
-                        color: goal.isReached
-                            ? theme.colorScheme.tertiary
-                            : theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        goal.name,
+                        style: theme.textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (details.isNotEmpty)
+                        Text(details, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                if (goal.isArchived)
+                  const StatusBadge('Arquivada')
+                else if (goal.isReached)
+                  const StatusBadge('Concluída', tone: StatusTone.positive)
+                else
+                  StatusBadge(formatPercentage(goal.progress * 100)),
+                PopupMenuButton<String>(
+                  tooltip: 'Opções',
+                  onSelected: (_) => onToggleArchive(),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'archive',
+                      child: Text(
+                        goal.isArchived ? 'Reativar meta' : 'Arquivar meta',
                       ),
                     ),
                   ],
                 ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AppDataRow(
+              label: 'Poupado',
+              value: MoneyText(
+                goal.currentAmount,
+                style: theme.textTheme.bodyMedium,
+                tone: MoneyTone.income,
+                maxLines: 1,
               ),
-              PopupMenuButton<String>(
-                tooltip: 'Opções',
-                onSelected: (_) => onToggleArchive(),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'archive',
-                    child: Text(
-                      goal.isArchived ? 'Reativar meta' : 'Arquivar meta',
-                    ),
-                  ),
-                ],
+            ),
+            AppDataRow(
+              label: 'Objetivo',
+              value: MoneyText(
+                goal.targetAmount,
+                style: theme.textTheme.bodyMedium,
+                maxLines: 1,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            ClipRRect(
+              borderRadius: AppRadii.small,
+              child: LinearProgressIndicator(
+                value: goal.progress,
+                minHeight: 8,
+                color: goal.isReached
+                    ? theme.colorScheme.tertiary
+                    : theme.colorScheme.primary,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -214,12 +274,12 @@ class _ErrorView extends StatelessWidget {
         : 'Não foi possível carregar as metas.';
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: AppSpacing.page,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton(
               onPressed: onRetry,
               child: const Text('Tentar novamente'),

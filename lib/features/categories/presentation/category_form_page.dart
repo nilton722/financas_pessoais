@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/widgets/labeled_dropdown.dart';
 import '../domain/category.dart';
@@ -118,24 +119,20 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.page,
               children: [
                 TextField(
                   controller: _nameController,
                   decoration: InputDecoration(
                     labelText: 'Nome',
-                    border: const OutlineInputBorder(),
                     errorText: _errors['name'],
                   ),
                   textInputAction: TextInputAction.done,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 if (_isEditing)
                   const InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'Tipo',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: InputDecoration(labelText: 'Tipo'),
                     child: Text(
                       'O tipo de uma categoria não pode ser alterado.',
                     ),
@@ -152,14 +149,14 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                         setState(() => _kind = kind ?? CategoryKind.expense),
                   ),
                 if (_isSystem) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   Text(
                     'Categoria predefinida pela aplicação. Pode ser renomeada '
                     'ou arquivada.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 FilledButton(
                   onPressed: _saving ? null : _save,
                   child: Text(_saving ? 'A guardar…' : 'Guardar'),

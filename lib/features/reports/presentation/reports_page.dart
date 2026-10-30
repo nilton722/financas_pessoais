@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_tokens.dart';
+import '../../../app/theme/finance_colors.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/formatters/plural_formatter.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/money_text.dart';
+import '../../../core/widgets/section_card.dart';
 import '../domain/report.dart';
 import 'reports_providers.dart';
 
@@ -30,14 +35,19 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(reportDataProvider),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.xl,
+          ),
           children: [
             _PeriodCard(
               filter: filter,
               onPreset: (preset) => _selectPreset(preset, filter.period),
               onPickRange: () => _pickRange(filter.period),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             switch (data) {
               AsyncData(:final value) => _ReportBody(
                 data: value,
@@ -53,15 +63,28 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                 onRetry: () => ref.invalidate(reportDataProvider),
               ),
               _ => const Padding(
-                padding: EdgeInsets.all(32),
+                padding: EdgeInsets.all(AppSpacing.xxl),
                 child: Center(child: CircularProgressIndicator()),
               ),
             },
-            const SizedBox(height: 16),
-            Text(
-              'Transferências entre contas próprias aparecem à parte e não '
-              'alteram rendimentos, despesas nem o resultado.',
-              style: theme.textTheme.bodySmall,
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Transferências entre contas próprias aparecem à parte e '
+                    'não alteram rendimentos, despesas nem o resultado.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -147,7 +170,12 @@ class _PeriodCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.xs,
+          AppSpacing.md,
+        ),
         child: Row(
           children: [
             Expanded(
@@ -158,6 +186,7 @@ class _PeriodCard extends StatelessWidget {
                     value: filter.preset,
                     isDense: true,
                     underline: const SizedBox.shrink(),
+                    style: theme.textTheme.titleMedium,
                     onChanged: (preset) {
                       if (preset != null) {
                         onPreset(preset);
@@ -171,7 +200,7 @@ class _PeriodCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(filter.period.label, style: theme.textTheme.bodySmall),
                 ],
               ),
@@ -207,7 +236,7 @@ class _ReportBody extends StatelessWidget {
     if (summary.isEmpty) {
       return const Card(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(AppSpacing.lg),
           child: EmptyState(
             icon: Icons.query_stats_outlined,
             title: 'Sem movimentos no período',
@@ -231,31 +260,56 @@ class _ReportBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SummaryCard(summary: summary),
-        const SizedBox(height: 12),
-        Card(
+        const SizedBox(height: AppSpacing.md),
+        SectionCard(
           key: const Key('report-groups'),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SegmentedButton<ReportGroupMode>(
+          title: 'Detalhe',
+          subtitle:
+              'Agrupado por '
+              '${mode == ReportGroupMode.category ? 'categoria' : 'conta'}',
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.md,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: SegmentedButton<ReportGroupMode>(
                   segments: [
                     for (final item in ReportGroupMode.values)
-                      ButtonSegment(value: item, label: Text(item.label)),
+                      ButtonSegment(
+                        value: item,
+                        label: Text(item.label),
+                        icon: Icon(
+                          item == ReportGroupMode.category
+                              ? Icons.category_outlined
+                              : Icons.account_balance_wallet_outlined,
+                          size: 16,
+                        ),
+                      ),
                   ],
                   selected: {mode},
                   showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   onSelectionChanged: (selected) => onMode(selected.first),
                 ),
-                const SizedBox(height: 12),
-                for (final group in groups)
-                  _GroupRow(group: group, maxVolume: maxVolume),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              for (var index = 0; index < groups.length; index++) ...[
+                if (index > 0) const Divider(height: 1),
+                _GroupRow(group: groups[index], maxVolume: maxVolume),
               ],
-            ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         FilledButton.icon(
           key: const Key('report-export'),
           onPressed: onExport,
@@ -264,10 +318,11 @@ class _ReportBody extends StatelessWidget {
         ),
         if (onExport == null)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
             child: Text(
               'Não há movimentos para exportar neste período.',
               style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
             ),
           ),
       ],
@@ -283,53 +338,69 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final finance = FinanceColors.of(context);
     final netColor = summary.net < 0
         ? theme.colorScheme.error
-        : theme.colorScheme.primary;
-    return Card(
+        : finance.positive;
+    return SectionCard(
       key: const Key('report-summary'),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Resumo do período', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryValue(
-                    label: 'Rendimentos',
-                    amount: summary.income,
-                    color: theme.colorScheme.primary,
-                  ),
+      title: 'Resumo do período',
+      subtitle: 'Movimentos confirmados, sem transferências entre contas',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _SummaryValue(
+                  label: 'Rendimentos',
+                  amount: summary.income,
+                  color: finance.income,
                 ),
-                Expanded(
-                  child: _SummaryValue(
-                    label: 'Despesas',
-                    amount: summary.expense,
-                    color: theme.colorScheme.error,
-                  ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _SummaryValue(
+                  label: 'Despesas',
+                  amount: summary.expense,
+                  color: theme.colorScheme.error,
                 ),
-                Expanded(
-                  child: _SummaryValue(
-                    label: 'Resultado',
-                    amount: summary.net,
-                    color: netColor,
-                  ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _SummaryValue(
+                  label: 'Resultado',
+                  amount: summary.net,
+                  color: netColor,
+                  emphasized: true,
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '${summary.movementCount} movimento(s)'
-              '${summary.transferTotal > 0 ? ' · Transferências '
-                        '${MoneyFormatter.formatXof(summary.transferTotal)} '
-                        '(fora do resultado)' : ''}',
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              _MetaPill(
+                icon: Icons.receipt_long_outlined,
+                label: PluralFormatter.count(
+                  summary.movementCount,
+                  'movimento',
+                  'movimentos',
+                ),
+              ),
+              if (summary.transferTotal > 0)
+                _MetaPill(
+                  icon: Icons.swap_horiz,
+                  label:
+                      'Transferências '
+                      '${MoneyFormatter.formatXof(summary.transferTotal)}',
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -340,11 +411,13 @@ class _SummaryValue extends StatelessWidget {
     required this.label,
     required this.amount,
     required this.color,
+    this.emphasized = false,
   });
 
   final String label;
   final int amount;
   final Color color;
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
@@ -352,16 +425,54 @@ class _SummaryValue extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: theme.textTheme.bodySmall),
-        const SizedBox(height: 4),
-        Text(
-          MoneyFormatter.formatXof(amount),
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w600,
+        Text(label, style: theme.textTheme.labelSmall),
+        const SizedBox(height: AppSpacing.xs),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: MoneyText(
+            amount,
+            semanticsLabel: '$label: ${MoneyFormatter.formatXof(amount)}',
+            style:
+                (emphasized
+                        ? theme.textTheme.titleMedium
+                        : theme.textTheme.titleSmall)
+                    ?.copyWith(color: color, fontWeight: FontWeight.w700),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MetaPill extends StatelessWidget {
+  const _MetaPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: AppRadii.badge,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: AppSpacing.xs),
+            Text(label, style: theme.textTheme.bodySmall),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -375,7 +486,13 @@ class _GroupRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fraction = maxVolume <= 0 ? 0.0 : group.volume / maxVolume;
+    final finance = FinanceColors.of(context);
+    final enabled = group.volume > 0;
+    final fraction = !enabled
+        ? 0.0
+        : maxVolume <= 0
+        ? 0.0
+        : (group.volume / maxVolume).clamp(0.0, 1.0);
     final transfers = group.transfers > 0
         ? ' · Transferências ${MoneyFormatter.formatXof(group.transfers)}'
         : '';
@@ -389,45 +506,99 @@ class _GroupRow extends StatelessWidget {
       label: description,
       child: ExcludeSemantics(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Expanded(
-                    child: Text(group.label, style: theme.textTheme.bodyLarge),
-                  ),
-                  Text(
-                    MoneyFormatter.formatXof(group.net),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: group.net < 0
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
+                    child: Text(
+                      group.label,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  MoneyText(
+                    group.net,
+                    tone: group.net < 0 ? MoneyTone.expense : MoneyTone.income,
+                    style: theme.textTheme.titleSmall,
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.sm),
               ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: AppRadii.small,
                 child: LinearProgressIndicator(
                   value: fraction,
-                  minHeight: 8,
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  minHeight: 7,
+                  backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                  color: group.net < 0
+                      ? theme.colorScheme.error
+                      : finance.transfer,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Rend. ${MoneyFormatter.formatXof(group.income)} · '
-                'Desp. ${MoneyFormatter.formatXof(group.expense)}$transfers',
-                style: theme.textTheme.bodySmall,
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.xxs,
+                children: [
+                  _MiniValue(
+                    label: 'Rend.',
+                    amount: group.income,
+                    color: finance.income,
+                  ),
+                  _MiniValue(
+                    label: 'Desp.',
+                    amount: group.expense,
+                    color: theme.colorScheme.error,
+                  ),
+                  if (group.transfers > 0)
+                    _MiniValue(
+                      label: 'Transf.',
+                      amount: group.transfers,
+                      color: finance.transfer,
+                    ),
+                ],
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MiniValue extends StatelessWidget {
+  const _MiniValue({
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
+
+  final String label;
+  final int amount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('$label ', style: theme.textTheme.bodySmall),
+        MoneyText(
+          amount,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -445,11 +616,11 @@ class _ErrorCard extends StatelessWidget {
         : 'Não foi possível calcular o relatório.';
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           children: [
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             FilledButton(
               onPressed: onRetry,
               child: const Text('Tentar novamente'),

@@ -24,7 +24,7 @@ void main() {
     addTearDown(db.close);
     await pumpApp(tester, db);
 
-    await tapNavigation(tester, 'Planeamento');
+    await tapNavigation(tester, 'Plano');
 
     expect(find.widgetWithText(AppBar, 'Planeamento'), findsOneWidget);
     for (final label in [
@@ -53,7 +53,7 @@ void main() {
     await createTestAccount(db, name: 'Carteira', openingBalance: 5000);
     await pumpApp(tester, db);
 
-    await tapNavigation(tester, 'Planeamento');
+    await tapNavigation(tester, 'Plano');
     await tapVisible(tester, find.text('Compromissos'));
     expect(find.text('Sem compromissos pendentes'), findsOneWidget);
 
@@ -133,7 +133,7 @@ void main() {
     );
     await pumpApp(tester, db);
 
-    await tapNavigation(tester, 'Planeamento');
+    await tapNavigation(tester, 'Plano');
     await tapVisible(tester, find.text('Orçamentos'));
     expect(find.textContaining('Sem orçamentos em'), findsOneWidget);
 
@@ -147,17 +147,12 @@ void main() {
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Guardar'));
 
     expect(find.text('Orçamento guardado.'), findsOneWidget);
-    expect(
-      find.text(
-        '${MoneyFormatter.formatXof(3000)} de '
-        '${MoneyFormatter.formatXof(5000)} · 60%',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.text('Restam ${MoneyFormatter.formatXof(2000)}'),
-      findsOneWidget,
-    );
+    expect(find.text('Gasto'), findsOneWidget);
+    expect(find.text(MoneyFormatter.formatXof(3000)), findsWidgets);
+    expect(find.text(MoneyFormatter.formatXof(5000)), findsWidgets);
+    expect(find.text('60%'), findsOneWidget);
+    expect(find.text('Restam'), findsOneWidget);
+    expect(find.text(MoneyFormatter.formatXof(2000)), findsOneWidget);
 
     await disposeApp(tester);
 
@@ -172,7 +167,7 @@ void main() {
     await createTestAccount(db, name: 'Carteira', openingBalance: 5000);
     await pumpApp(tester, db);
 
-    await tapNavigation(tester, 'Planeamento');
+    await tapNavigation(tester, 'Plano');
     await tapVisible(tester, find.text('Dívidas'));
     expect(find.text('Sem dívidas'), findsOneWidget);
 
@@ -205,7 +200,11 @@ void main() {
     );
 
     expect(find.text('Pagamento registado.'), findsOneWidget);
-    expect(find.text(MoneyFormatter.formatXof(1000)), findsOneWidget);
+    expect(
+      find.text(MoneyFormatter.formatXof(1000)),
+      findsWidgets,
+      reason: 'o resumo e o cartão da dívida mostram o pendente',
+    );
 
     await disposeApp(tester);
 
@@ -231,7 +230,7 @@ void main() {
     await createTestAccount(db, name: 'Carteira', openingBalance: 5000);
     await pumpApp(tester, db);
 
-    await tapNavigation(tester, 'Planeamento');
+    await tapNavigation(tester, 'Plano');
     await tapVisible(tester, find.text('Metas de poupança'));
     expect(find.text('Sem metas'), findsOneWidget);
 
@@ -248,13 +247,11 @@ void main() {
 
     expect(find.text('Meta criada.'), findsOneWidget);
     expect(find.text('Viagem'), findsOneWidget);
-    expect(
-      find.text(
-        '${MoneyFormatter.formatXof(5000)} de '
-        '${MoneyFormatter.formatXof(10000)} · 50%',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Poupado'), findsOneWidget);
+    expect(find.text(MoneyFormatter.formatXof(5000)), findsWidgets);
+    expect(find.text('Objetivo'), findsOneWidget);
+    expect(find.text(MoneyFormatter.formatXof(10000)), findsWidgets);
+    expect(find.text('50%'), findsOneWidget);
 
     await disposeApp(tester);
 
@@ -270,7 +267,7 @@ void main() {
     addTearDown(db.close);
     await pumpApp(tester, db);
 
-    await tapNavigation(tester, 'Planeamento');
+    await tapNavigation(tester, 'Plano');
     await tapVisible(tester, find.text('Recorrências'));
     expect(find.text('Sem recorrências'), findsOneWidget);
 
@@ -296,7 +293,7 @@ void main() {
     expect(find.text('Sem novas ocorrências.'), findsOneWidget);
     expect((await PlanningRepository(db).readItems()).length, generated);
 
-    await tapNavigation(tester, 'Planeamento');
+    await tapNavigation(tester, 'Plano');
     expect(find.textContaining('$generated pendentes'), findsOneWidget);
     await tapVisible(tester, find.text('Compromissos'));
     expect(find.text('Renda mensal'), findsNWidgets(generated));

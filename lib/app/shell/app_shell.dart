@@ -15,7 +15,7 @@ class AppShell extends StatelessWidget {
       label: 'Contas',
     ),
     (path: '/categories', icon: Icons.category_outlined, label: 'Categorias'),
-    (path: '/planning', icon: Icons.event_note_outlined, label: 'Planeamento'),
+    (path: '/planning', icon: Icons.event_note_outlined, label: 'Plano'),
   ];
 
   int _indexFor(String location) {
