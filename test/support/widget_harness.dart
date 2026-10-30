@@ -1,6 +1,8 @@
 import 'package:financas_pessoais/app/app.dart';
 import 'package:financas_pessoais/core/database/app_database.dart';
 import 'package:financas_pessoais/core/database/database_providers.dart';
+import 'package:financas_pessoais/core/files/app_files.dart';
+import 'package:financas_pessoais/core/files/app_files_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +17,14 @@ Future<void> settle(WidgetTester tester) => tester.pumpAndSettle(
 
 /// Ecrã alto o suficiente para o painel e os formulários ficarem visíveis,
 /// evitando falhas de toque por conteúdo fora da área renderizada.
-Future<void> pumpApp(WidgetTester tester, AppDatabase db) async {
+///
+/// [filesRoot] substitui a pasta de dados da aplicação por uma pasta
+/// temporária nos testes de backup e exportação.
+Future<void> pumpApp(
+  WidgetTester tester,
+  AppDatabase db, {
+  AppFilesRootResolver? filesRoot,
+}) async {
   tester.view.physicalSize = const Size(800, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(() {
@@ -25,7 +34,11 @@ Future<void> pumpApp(WidgetTester tester, AppDatabase db) async {
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [appDatabaseProvider.overrideWithValue(db)],
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        if (filesRoot != null)
+          appFilesRootResolverProvider.overrideWithValue(filesRoot),
+      ],
       child: const FinancasApp(),
     ),
   );
@@ -43,6 +56,27 @@ Future<void> tapVisible(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await settle(tester);
   await tester.tap(finder);
+  await settle(tester);
+}
+
+/// Alterna tempo simulado e real até [condition] aparecer. Necessário para
+/// operações de ficheiro: cada `await` de I/O só continua no `pump` seguinte.
+/// O `pump` avança o relógio simulado para que animações (diálogos, rotas)
+/// terminem enquanto o I/O real progride.
+Future<void> pumpDisk(
+  WidgetTester tester,
+  Finder condition, {
+  int attempts = 80,
+}) async {
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (condition.evaluate().isNotEmpty) {
+      break;
+    }
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+  }
   await settle(tester);
 }
 

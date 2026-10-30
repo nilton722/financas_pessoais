@@ -89,3 +89,43 @@ Motivo: o caixa só muda com dinheiro real; o estado deriva dos pagamentos, pelo
 ## ADR-025 — Alertas locais apenas dentro da app
 **Estado:** aceite na Fase 03. O planeamento mostra alertas derivados dos streams: compromissos vencidos ou a vencer em 7 dias, dívidas vencidas e orçamentos excedidos. Não há plugin de notificações do sistema, nem agendamento em background.
 Motivo: cumprir "alertas locais opcionais" sem novas dependências nem pedidos de permissão, mantendo tudo offline e privado. Os alertas desaparecem assim que o estado muda, porque usam os mesmos providers das listas.
+
+## ADR-026 — Motor de previsão determinístico sem snapshots
+**Estado:** aceite na Fase 04. A previsão é calculada em Dart puro (`ForecastEngine`) sobre um `ForecastRequest`: data de corte, saldo consolidado real, compromissos em aberto e despesas históricas. O horizonte predefinido é 30 dias, com 7 e 90 dias disponíveis. Não há Python, ML, rede nem aleatoriedade; a versão do algoritmo é `forecast-1`.
+Regras:
+- Data de corte = dia atual; saldo de partida = saldo consolidado das contas ativas na moeda configurada (ADR-018).
+- Compromissos entram pelo valor em falta (`amount − pago`); pagos e cancelados ficam de fora. Vencidos entram no dia de corte, não no passado.
+- Pagamentos já realizados alteram o saldo de partida e não são deduzidos outra vez.
+- Ocorrências recorrentes são materializadas até ao horizonte máximo através de `syncRecurrences`, que é idempotente (ADR-020); o motor não as recria nem as projeta em paralelo.
+- Transferências não entram: não alteram o saldo consolidado (ADR-008).
+- O dia 0 aplica apenas compromissos confirmados; os dias seguintes aplicam compromissos e estimativas. Os montantes diários são repartidos pro rata pelo mês, com arredondamento inteiro cumulativo.
+- `ForecastBundle` inclui data de corte, instante de geração, parâmetros e os três resultados. O resultado é reproduzível sem guardar snapshots; a persistência de uma fotografia fica para quando existir um caso de uso concreto (comparação histórica ou exportação).
+
+## ADR-027 — Estimativas por mediana mensal com limiar de qualidade
+**Estado:** aceite na Fase 04. As estimativas históricas usam apenas despesas não eliminadas dos últimos três meses civis completos. O histórico é considerado suficiente com pelo menos 3 meses com despesas e 6 movimentos de despesa; caso contrário, a previsão usa só compromissos conhecidos e explica a limitação.
+Método:
+- Cada categoria é estimada pela mediana dos totais mensais da janela, incluindo meses sem despesas dessa categoria como zero; a categoria só é estimada se aparecer em pelo menos 2 meses e a mediana for positiva.
+- Categorias com compromissos conhecidos dentro do horizonte ficam fora das estimativas, para não duplicar o mesmo gasto.
+- Rendimentos e transferências ficam de fora; as estimativas representam apenas despesa variável.
+- O resultado indica meses e movimentos observados, categorias estimadas, total mensal estimado, pressupostos e limitações; o motor nunca apresenta estas regras como "IA".
+Motivo: uma mediana resiste a valores extremos e não exige parâmetros estatísticos opacos. O limiar evita inventar padrões com poucos dados, cumprindo "não inventar histórico". Cenários base/prudente/otimista não foram introduzidos porque exigiriam pressupostos adicionais explícitos e ainda não há dados para os justificar; a evolução para modelos estatísticos segue o ADR-012, com backtesting temporal.
+
+## ADR-028 — Backup JSON versionado com validação e restauro atómico
+**Estado:** aceite na Fase 05. O backup é um documento JSON UTF-8 legível (`format: financas_pessoais_backup`, `formatVersion: 1`, `schemaVersion: 4`, `appVersion`), não uma cópia binária do ficheiro SQLite. Inclui as 12 tabelas de dados do utilizador, as configurações (`app_settings`), contagens por tabela e um checksum FNV-1a de 32 bits. `schema_migrations` fica de fora: descreve a migração da base, não o conteúdo.
+Regras:
+- A validação verifica JSON, formato, versão do formato, versão **exata** do esquema, tipos de cada coluna, contagens e checksum; qualquer falha produz `AppFailure` sem alterar a base.
+- O restauro relê e revalida o ficheiro imediatamente antes de substituir; uma alteração externa entre a listagem e o toque é apanhada.
+- Antes de substituir, é sempre escrita uma cópia `pre-restore-…json` da base atual; essa cópia é um backup normal e serve para desfazer.
+- A substituição corre numa única transação SQLite: `DELETE` pela ordem inversa das dependências, `INSERT` pela ordem pai → filho, verificação das contagens e `PRAGMA foreign_key_check`. Qualquer erro faz rollback e mantém a base atual; nunca fica uma base parcial.
+- Backups de outra versão do esquema são recusados em vez de interpretados à força; migrar o documento será um passo explícito quando existir uma versão nova.
+Motivo: IDs, relações e montantes preservam-se sem depender de detalhes binários do SQLite, e o ciclo completo é testável em memória. O checksum deteta corrupção acidental, não é uma assinatura criptográfica (ADR-030). Não foi introduzida dependência nova.
+
+## ADR-029 — Relatórios agregados na leitura e exportação CSV local
+**Estado:** aceite na Fase 05. O relatório é calculado em Dart a partir de `TransactionRepository.readMovements` no intervalo escolhido — este mês, mês anterior, últimos três meses ou intervalo personalizado — sem tabela de agregados. Rendimentos e despesas somam por categoria e por conta; transferências ficam fora do rendimento, da despesa e do resultado, mas aparecem como entradas/saídas nas contas envolvidas. Os grupos são ordenados por volume decrescente.
+A exportação CSV é gerada em memória e escrita na pasta `exports` apenas por ação do utilizador: UTF-8 com BOM, separador `;`, fim de linha CRLF, datas `DD/MM/YYYY`, montantes inteiros FCFA, rótulos portugueses e aspas duplicadas nos campos. Movimentos eliminados ficam de fora. O ficheiro nunca é transmitido; PDF fica para uma fase futura (SPEC §3).
+Motivo: uma única política de agregação evita divergência entre o ecrã e o ficheiro exportado. O formato com `;` e BOM abre corretamente em folhas de cálculo em português sem importação manual. As consultas reutilizam os índices da lista de movimentos.
+
+## ADR-030 — Sem PIN/biometria; bloquear a interface não cifra a base
+**Estado:** aceite na Fase 05. Esta versão não implementa PIN nem biometria. As definições explicam que a base SQLite e os ficheiros de backup/exportação não são cifrados e ficam legíveis num dispositivo desbloqueado ou com root; um eventual bloqueio de interface seria apenas uma barreira visual, não cifragem. Não é criada criptografia própria.
+A aplicação não pede permissões de armazenamento: usa a pasta externa específica da aplicação no Android (ou documentos no desktop) e só escreve quando o utilizador cria um backup ou exporta um relatório. O checksum do backup não é apresentado como segurança. Se PIN/biometria forem introduzidos, usarão APIs seguras da plataforma para bloquear o acesso, mantendo explícita a limitação da base não cifrada.
+Motivo: cumprir "PIN/biometria só com APIs seguras" sem prometer uma proteção que a versão não oferece, e documentar as limitações de proteção local exigidas na Fase 05.

@@ -201,6 +201,31 @@ pagamento (ADR-024).
 `idx_savings_goals_archived`, `idx_debts_status`,
 `idx_debt_payments_debt`.
 
+## Fase 04 — sem alterações de esquema
+
+A previsão local é calculada em memória a partir de leituras existentes
+(`accounts`/`transactions` via `AccountRepository`, `planned_items` e
+ocorrências via `PlanningRepository`, `app_settings`) e não cria tabelas nem
+colunas. O esquema permanece em **v4**; não existe migração v5. Não são
+guardados snapshots: cada cálculo é reproduzível a partir da data de corte,
+dos parâmetros e da versão `forecast-1` (ADR-026).
+
+## Fase 05 — sem alterações de esquema
+
+Os relatórios agregam movimentos em memória a partir de `transactions` e os
+backups são documentos JSON externos ao SQLite. O esquema continua em **v4**, o
+que simplifica a validação: um backup declara `formatVersion: 1` e
+`schemaVersion: 4` e é recusado se a versão do esquema não for exatamente a da
+aplicação.
+
+O backup inclui 12 tabelas — todas as de dados do utilizador:
+`accounts`, `categories`, `app_settings`, `transactions`, `planned_items`,
+`planned_item_payments`, `recurring_rules`, `recurring_occurrences`, `budgets`,
+`savings_goals`, `debts` e `debt_payments`. `schema_migrations` fica de fora:
+descreve a migração da base, não o conteúdo. O restauro valida o ficheiro e
+substitui os dados numa única transação com `PRAGMA foreign_key_check`
+(ADR-028). Formato, localizações e recuperação: [BACKUP.md](BACKUP.md).
+
 ## Seeds (idempotentes)
 
 Inseridos com `INSERT OR IGNORE` em cada abertura, usando UUIDs fixos — uma
@@ -247,5 +272,13 @@ Regras do processo:
 `test/unit/repositories/budget_repository_test.dart`,
 `test/unit/repositories/savings_goal_repository_test.dart`,
 `test/unit/repositories/debt_repository_test.dart`,
-`test/unit/repositories/allocation_integrity_test.dart` e
-`test/widget/planning_flow_test.dart`.
+`test/unit/repositories/allocation_integrity_test.dart`,
+`test/unit/forecast/forecast_engine_test.dart`,
+`test/unit/repositories/forecast_repository_test.dart`,
+`test/unit/backup/backup_format_test.dart`,
+`test/unit/backup/backup_service_test.dart`,
+`test/unit/reports/report_test.dart`,
+`test/unit/reports/report_csv_test.dart`,
+`test/widget/planning_flow_test.dart`, `test/widget/forecast_flow_test.dart`,
+`test/widget/reports_flow_test.dart`, `test/widget/backup_flow_test.dart` e
+`test/widget/dashboard_flow_test.dart`.

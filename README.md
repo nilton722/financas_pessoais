@@ -3,11 +3,11 @@
 Aplicação mobile de finanças pessoais para uso individual: Flutter/Dart, SQLite
 local, offline-first. Sem backend, sem login remoto, sem telemetria.
 
-**Estado:** Fase 04 (previsão local) concluída — motor determinístico em Dart
-com saldo projetado a 7, 30 e 90 dias, compromissos confirmados, estimativas
-por categoria a partir de histórico suficiente e explicação de pressupostos e
-limitações, sobre as contas, categorias, movimentos e planeamento das fases
-anteriores. Tudo offline, sem backend nem telemetria.
+**Estado:** Fase 05 (experiência, relatórios e privacidade) concluída — painel
+com saldo real e projetado, orçamento, compromissos e metas; relatórios por
+período/categoria/conta com exportação CSV; backup JSON versionado com validação
+e restauro atómico; definições de privacidade e localização dos dados. Tudo
+offline, sem backend nem telemetria.
 
 ## Requisitos
 
@@ -43,20 +43,21 @@ flutter test
 ```text
 lib/
   app/            aplicação, router (go_router), shell com navegação inferior
-  core/           base de dados, migrações, seeds, formatters, erros, utils, widgets
+  core/           base de dados, migrações, seeds, formatters, ficheiros, backup, erros, utils, widgets
   features/
-    dashboard/    painel com saldo consolidado e totais do mês
+    dashboard/    painel com saldo real/projetado, orçamento, compromissos e metas
     accounts/     contas e saldos por conta
     categories/   categorias de rendimento e despesa
     transactions/ movimentos, transferências e filtros
     planning/     compromissos, recorrências, orçamentos, metas e dívidas
     forecast/     previsão local: motor, repositório, providers e ecrã
-    settings/     configuração local
+    reports/      relatórios por período/categoria/conta e exportação CSV
+    settings/     definições, privacidade, backups e restauro
 test/
   support/        fixtures de base de dados, domínio e widgets
-  unit/           domínio, formatters, base de dados e repositórios
+  unit/           domínio, formatters, base de dados, repositórios, backup e relatórios
   widget/         arranque, navegação e fluxos de criação/validação
-docs/             SPEC, decisões (ADR) e modelo de dados
+docs/             SPEC, decisões (ADR), modelo de dados, backup e privacidade
 ```
 
 Camadas: widgets não contêm SQL nem regras financeiras; acesso a dados passa
@@ -68,7 +69,9 @@ rotas próprias (`/accounts/new`, `/movements/:id/edit`,
 `/planning/commitments/:id/pay`, …) — ver ADR-017. O separador Planeamento
 agrupa cinco áreas: compromissos, orçamentos, recorrências, metas de poupança e
 dívidas. A previsão abre em `/forecast`, a partir do cartão do painel; não ocupa
-um separador próprio.
+um separador próprio. **Relatórios** (`/reports`) e **Definições**
+(`/settings`, com `/settings/backups`) abrem pelos ícones do painel ou pela
+entrada “Privacidade e backup”, sem ocupar separadores.
 
 ## Base de dados
 
@@ -82,10 +85,12 @@ um separador próprio.
   movimentos não eliminados até à data de referência (ADR-018).
 - O esquema está em **v4**. As migrações v2–v4 (Fase 03) são aditivas e
   preservam os dados existentes: compromissos e recorrências, orçamentos,
-  metas e dívidas. Nenhuma base é recriada para atualizar. A Fase 04 não altera
-  o esquema: a previsão lê as tabelas existentes.
+  metas e dívidas. Nenhuma base é recriada para atualizar. As Fases 04 e 05 não
+  alteram o esquema: a previsão e os relatórios leem as tabelas existentes.
 
 Detalhe do esquema, seeds e plano de migrações: [docs/DATABASE.md](docs/DATABASE.md).
+Backup, exportação e recuperação: [docs/BACKUP.md](docs/BACKUP.md).
+Privacidade e limitações de proteção local: [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ## Notas de ambiente (Windows)
 
@@ -107,7 +112,24 @@ Detalhe do esquema, seeds e plano de migrações: [docs/DATABASE.md](docs/DATABA
 - Saldo por conta e consolidado, calculados a partir dos movimentos reais.
 - Lista de movimentos com filtros de período, conta, tipo e categoria, edição
   e eliminação lógica.
-- Painel com saldo consolidado e rendimentos/despesas do mês corrente.
+- Painel com saldo real consolidado e saldo projetado distinguidos visualmente
+  (cartão verde “Saldo real consolidado” e cartão “Projetado” com data de
+  corte), rendimentos/despesas do mês, resumo de orçamentos, compromissos
+  pendentes e metas, com etiquetas de acessibilidade.
+- Relatórios por período (este mês, mês anterior, últimos três meses ou
+  intervalo), agrupados por categoria ou conta, com resumo de rendimentos,
+  despesas e resultado; transferências aparecem à parte sem alterar os totais.
+- Exportação CSV local, iniciada pelo utilizador, em UTF-8 com BOM, `;` e datas
+  `DD/MM/YYYY`; o caminho do ficheiro pode ser copiado — ver ADR-029.
+- Backup JSON versionado (formato v1, esquema v4) com as 12 tabelas de dados,
+  configurações, contagens e checksum; pré-visualização e confirmação antes de
+  restaurar.
+- Restauro atómico: valida o ficheiro, cria uma cópia `pre-restore-…json` da
+  base atual e substitui tudo numa única transação SQLite com verificação de
+  contagens e chaves estrangeiras; um erro não deixa base parcial — ADR-028.
+- Definições com privacidade, caminhos dos dados/backups/exportações e versão;
+  a app não pede permissões de armazenamento e a exportação é sempre iniciada
+  pelo utilizador — ver [docs/PRIVACY.md](docs/PRIVACY.md).
 - Compromissos futuros de rendimento/despesa com vencimento, conta e categoria
   opcionais; pagamento total ou parcial cria exatamente um movimento real e
   nunca duplica o caixa. Cancelar remove a previsão e mantém pagamentos.
@@ -128,7 +150,6 @@ Detalhe do esquema, seeds e plano de migrações: [docs/DATABASE.md](docs/DATABA
   compromissos conhecidos. Mostra saldo projetado, menor saldo, próximos
   compromissos, pressupostos, qualidade dos dados e limitações — ver ADR-026 e
   ADR-027.
-- Backup/restauro versionado: previsto para a Fase 05; ainda não implementado.
 
 ## Fases
 
@@ -138,5 +159,5 @@ Detalhe do esquema, seeds e plano de migrações: [docs/DATABASE.md](docs/DATABA
 | 02 | Contas, categorias, movimentos | concluída |
 | 03 | Planeamento, orçamentos, recorrências, metas, dívidas | concluída |
 | 04 | Previsão local | concluída |
-| 05 | Dashboard, relatórios, backup, privacidade | por iniciar |
+| 05 | Dashboard, relatórios, backup, privacidade | concluída |
 | 06 | Validação e preparação Android | por iniciar |

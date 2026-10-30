@@ -5,6 +5,10 @@ import '../features/accounts/presentation/accounts_page.dart';
 import '../features/categories/presentation/categories_page.dart';
 import '../features/categories/presentation/category_form_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
+import '../features/forecast/presentation/forecast_page.dart';
+import '../features/reports/presentation/reports_page.dart';
+import '../features/settings/presentation/backups_page.dart';
+import '../features/settings/presentation/settings_page.dart';
 import '../features/planning/presentation/budget_form_page.dart';
 import '../features/planning/presentation/budgets_page.dart';
 import '../features/planning/presentation/commitment_form_page.dart';
@@ -29,6 +33,24 @@ GoRouter buildRouter() => GoRouter(
       builder: (context, state, child) => AppShell(child: child),
       routes: [
         GoRoute(path: '/', builder: (context, state) => const DashboardPage()),
+        GoRoute(
+          path: '/forecast',
+          builder: (context, state) => const ForecastPage(),
+        ),
+        GoRoute(
+          path: '/reports',
+          builder: (context, state) => const ReportsPage(),
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (context, state) => const SettingsPage(),
+          routes: [
+            GoRoute(
+              path: 'backups',
+              builder: (context, state) => const BackupsPage(),
+            ),
+          ],
+        ),
         GoRoute(
           path: '/movements',
           builder: (context, state) => const MovementsPage(),
