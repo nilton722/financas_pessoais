@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app_startup.dart';
 import 'splash_page.dart';
+import 'splash_providers.dart';
 
 /// Mantém o splash visível até a inicialização real terminar e a animação de
 /// entrada completar, depois desvanece-o para revelar a aplicação.
@@ -51,6 +52,7 @@ class _SplashGateState extends ConsumerState<SplashGate>
     if (!mounted) {
       return;
     }
+    ref.read(splashFinishedProvider.notifier).complete();
     setState(() => _visible = false);
   }
 

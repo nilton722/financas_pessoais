@@ -66,6 +66,11 @@ kotlin {
     }
 }
 
+dependencies {
+    // Tema AppCompat exigido pelo diálogo biométrico do local_auth.
+    implementation("androidx.appcompat:appcompat:1.7.1")
+}
+
 flutter {
     source = "../.."
 }

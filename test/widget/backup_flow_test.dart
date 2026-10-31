@@ -58,8 +58,7 @@ void main() {
     await pumpApp(tester, db, filesRoot: () async => root);
 
     await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
-    await tester.ensureVisible(find.byKey(const Key('settings-backups')));
-    await tester.pump();
+    await scrollToVisible(tester, find.byKey(const Key('settings-backups')));
     await tester.tap(find.byKey(const Key('settings-backups')));
     await pumpDisk(tester, find.text('Ainda sem backups'));
     expect(find.text('Ainda sem backups'), findsOneWidget);
@@ -174,6 +173,7 @@ void main() {
     await pumpApp(tester, db, filesRoot: () async => root);
 
     await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
+    await scrollToVisible(tester, find.byKey(const Key('settings-backups')));
     await tester.tap(find.byKey(const Key('settings-backups')));
     await pumpDisk(tester, find.byKey(const Key('backup-list')));
     expect(find.textContaining('não é um backup JSON válido'), findsWidgets);
@@ -216,8 +216,7 @@ void main() {
     );
 
     await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
-    await tester.ensureVisible(find.byKey(const Key('settings-backups')));
-    await tester.pump();
+    await scrollToVisible(tester, find.byKey(const Key('settings-backups')));
     await tester.tap(find.byKey(const Key('settings-backups')));
     await pumpDisk(tester, find.text('Ainda sem backups'));
     expect(find.byKey(const Key('backup-import')), findsOneWidget);
@@ -281,8 +280,7 @@ void main() {
     );
 
     await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
-    await tester.ensureVisible(find.byKey(const Key('settings-backups')));
-    await tester.pump();
+    await scrollToVisible(tester, find.byKey(const Key('settings-backups')));
     await tester.tap(find.byKey(const Key('settings-backups')));
     await pumpDisk(tester, find.text('Ainda sem backups'));
 

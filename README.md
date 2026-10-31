@@ -8,14 +8,13 @@ oficial, o logótipo, a paleta e o splash vivem em `assets/branding/` e nas
 configurações nativas; os ícones Android/iOS são gerados a partir da arte
 aprovada sem dependências adicionais.
 
-**Estado:** Fase 06 (validação e preparação para lançamento) concluída — testes
-de integração ponta a ponta, migração v3→v4 com dados, modo avião validado,
-revisão de segurança/privacidade/acessibilidade, dependências limpas,
-documentação de lançamento e APK de release gerado e instalado. Tudo offline,
-sem backend nem telemetria.
+**Estado:** Fase 07 (bloqueio ao abrir) concluída — bloqueio opcional com as
+credenciais do telefone validado no emulador. As Fases 01–07 estão concluídas.
+Tudo offline, sem backend nem telemetria.
 
 Manual de instalação e uso: [docs/MANUAL.md](docs/MANUAL.md).
-Relatório de validação e defeitos conhecidos:
+Relatório de validação desta fase e defeitos conhecidos:
+[docs/VALIDACAO-FASE-07.md](docs/VALIDACAO-FASE-07.md); anterior:
 [docs/VALIDACAO-FASE-06.md](docs/VALIDACAO-FASE-06.md).
 Design system, marca, tokens e política de apresentação de dados:
 [docs/DESIGN.md](docs/DESIGN.md) (ADR-032, ADR-033 e ADR-034).
@@ -44,21 +43,25 @@ tabelas mudarem.
 ## Comandos de verificação
 
 ```bash
-dart format .
+dart format lib test
 flutter analyze
 flutter test
 ```
 
-Validação de release: `dart format --set-exit-if-changed .`, `flutter analyze`,
-`flutter test` e `flutter build apk --release` — resultados e data em
-[docs/VALIDACAO-FASE-06.md](docs/VALIDACAO-FASE-06.md).
+Validação de release: `dart format --set-exit-if-changed lib test`,
+`flutter analyze`, `flutter test` e `flutter build apk --release` — resultados e
+data em [docs/VALIDACAO-FASE-07.md](docs/VALIDACAO-FASE-07.md).
+
+O `dart format .` inclui `build/`, cujos nomes de ficheiros gerados pelo Gradle
+excedem o limite de caminho do Windows e fazem o comando falhar; use `lib test`
+ou um sistema com caminhos longos.
 
 ## Estrutura
 
 ```text
 lib/
-  app/            aplicação, router (go_router), shell com navegação inferior
-  core/           base de dados, migrações, seeds, formatters, ficheiros, backup, erros, utils, widgets
+  app/            aplicação, router (go_router), shell, splash e bloqueio
+  core/           base de dados, migrações, seeds, formatters, ficheiros, backup, segurança, erros, utils, widgets
   features/
     dashboard/    painel com saldo real/projetado, orçamento, compromissos e metas
     accounts/     contas e saldos por conta
@@ -149,10 +152,13 @@ Instalação, uso e assinatura de release: [docs/MANUAL.md](docs/MANUAL.md).
 - Restauro atómico: valida o ficheiro, cria uma cópia `pre-restore-…json` da
   base atual e substitui tudo numa única transação SQLite com verificação de
   contagens e chaves estrangeiras; um erro não deixa base parcial — ADR-028.
-- Definições com privacidade, caminhos dos dados/backups/exportações e versão;
-  a app não pede permissões de armazenamento e backup, exportação e importação
-  são sempre iniciados pelo utilizador — ver
-  [docs/PRIVACY.md](docs/PRIVACY.md).
+- Definições com privacidade, bloqueio ao abrir, caminhos dos
+  dados/backups/exportações e versão; a app não pede permissões de
+  armazenamento e backup, exportação e importação são sempre iniciados pelo
+  utilizador — ver [docs/PRIVACY.md](docs/PRIVACY.md).
+- Bloqueio opcional ao abrir com PIN, padrão, palavra-passe ou biometria do
+  telefone, delegado no sistema; volta a pedir após 60 segundos em segundo
+  plano. É uma barreira de interface e não cifra a base — ADR-037.
 - Compromissos futuros de rendimento/despesa com vencimento, conta e categoria
   opcionais; pagamento total ou parcial cria exatamente um movimento real e
   nunca duplica o caixa. Cancelar remove a previsão e mantém pagamentos.
@@ -188,3 +194,4 @@ Instalação, uso e assinatura de release: [docs/MANUAL.md](docs/MANUAL.md).
 | 04 | Previsão local | concluída |
 | 05 | Dashboard, relatórios, backup, privacidade | concluída |
 | 06 | Validação e preparação Android | concluída |
+| 07 | Bloqueio ao abrir com as credenciais do telefone | concluída |

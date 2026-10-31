@@ -32,4 +32,23 @@ void main() {
     expect(settings.timeZone, 'Africa/Dakar');
     expect((await db.select(db.appSettings).get()).length, 3);
   });
+
+  test('preferência de bloqueio começa desligada e persiste', () async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final repository = AppSettingsRepository(db);
+
+    expect(await repository.loadLockOnOpen(), isFalse);
+
+    await repository.saveLockOnOpen(true);
+
+    expect(await repository.loadLockOnOpen(), isTrue);
+    expect((await repository.load()).timeZone, 'Africa/Bissau');
+    expect((await db.select(db.appSettings).get()).length, 4);
+
+    await repository.saveLockOnOpen(false);
+
+    expect(await repository.loadLockOnOpen(), isFalse);
+    expect((await db.select(db.appSettings).get()).length, 4);
+  });
 }

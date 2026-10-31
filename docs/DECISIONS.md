@@ -128,6 +128,7 @@ Motivo: uma única política de agregação evita divergência entre o ecrã e o
 ## ADR-030 — Sem PIN/biometria; bloquear a interface não cifra a base
 **Estado:** aceite na Fase 05. Esta versão não implementa PIN nem biometria. As definições explicam que a base SQLite e os ficheiros de backup/exportação não são cifrados e ficam legíveis num dispositivo desbloqueado ou com root; um eventual bloqueio de interface seria apenas uma barreira visual, não cifragem. Não é criada criptografia própria.
 A aplicação não pede permissões de armazenamento: usa a pasta externa específica da aplicação no Android (ou documentos no desktop) e só escreve quando o utilizador cria um backup ou exporta um relatório. O checksum do backup não é apresentado como segurança. Se PIN/biometria forem introduzidos, usarão APIs seguras da plataforma para bloquear o acesso, mantendo explícita a limitação da base não cifrada.
+**Nota (Fase 07):** o ADR-037 introduz um bloqueio opcional ao abrir, delegado nas credenciais do sistema. A base SQLite e os ficheiros de backup/exportação continuam sem cifra, pelo que a limitação central deste ADR permanece.
 Motivo: cumprir "PIN/biometria só com APIs seguras" sem prometer uma proteção que a versão não oferece, e documentar as limitações de proteção local exigidas na Fase 05.
 
 ## ADR-031 — Build de release assinado fora do repositório
@@ -189,4 +190,15 @@ Regras:
 - A validação do ficheiro importado é a mesma do restauro local (formato, versão, esquema, tipos, contagens e checksum) e qualquer falha não altera a base.
 - Os textos de Definições e Backup explicam que a pasta `Android/data` está oculta em Android 11+ e que a retirada de ficheiros exige `adb pull`.
 Motivo: pedir armazenamento amplo seria desproporcionado para uma app offline que só precisa dos próprios ficheiros, e o SAF é a autorização mínima suportada. A importação resolve a limitação prática de a pasta `Android/data` estar oculta em Android 11+, permitindo recuperar um backup copiado para Downloads. Custo aceite: retirar backups e exportações do dispositivo em Android 11+ exige depuração USB (`adb`); não há partilha integrada. Testes: `test/unit/backup/backup_service_test.dart` (importação válida e inválida) e `test/widget/backup_flow_test.dart` (fluxo completo com seletor simulado).
+
+## ADR-037 — Bloqueio ao abrir com as credenciais do dispositivo
+**Estado:** aceite na Fase 07. A aplicação passa a poder exigir o desbloqueio do telefone antes de revelar os dados, através do plugin oficial `local_auth` 3.0.2. A preferência `lock_on_open` é guardada na tabela de configurações (`app_settings`, sem migração), vem desligada por omissão e só se aplica na abertura seguinte. O bloqueio usa o PIN, padrão, palavra-passe ou biometria geridos pelo sistema (`biometricOnly: false`), nunca um PIN próprio da app.
+Regras:
+- O `AppLockGate` envolve o conteúdo do router e, quando bloqueado, apresenta um ecrã opaco com a marca, `AbsorbPointer` e `ExcludeSemantics` sobre a aplicação; nenhum dado financeiro fica visível ou acessível. O pedido de desbloqueio é automático depois de o splash terminar e pode ser repetido no botão.
+- O estado vive em memória: abrir a app bloqueia sempre que a preferência está ativa; regressar de segundo plano bloqueia após 60 segundos (constante de produto). Regressos mais curtos, como o seletor de ficheiros, mantêm a sessão.
+- Cancelar ou falhar a autenticação mantém o ecrã de bloqueio. Se o dispositivo deixar de ter credenciais configuradas, o ecrã explica a situação e permite abrir sem bloqueio, para não deixar o utilizador preso fora da própria app; o interruptor fica desativado.
+- A verificação é feita pelo sistema; a app recebe apenas o resultado e não guarda PIN nem dados biométricos. O plugin não abre rede nem ficheiros.
+- Android: `MainActivity` passa a `FlutterFragmentActivity`, o manifesto declara `USE_BIOMETRIC` (permissão normal, sem pedido em execução) e os temas nativos herdam de `Theme.AppCompat` com `androidx.appcompat`. iOS: `NSFaceIDUsageDescription`. O release continua sem `INTERNET` e sem permissões de armazenamento.
+- O bloqueio é apenas de interface: a base SQLite, os backups e as exportações continuam sem cifra (ADR-030). Um backup restaurado com `lock_on_open` ativo passa a pedir o desbloqueio no dispositivo atual, com as credenciais locais.
+Motivo: dar uma proteção proporcional para uso individual num telefone partilhado ou emprestado, sem criar criptografia própria nem prometer proteção contra acesso aos ficheiros. Custo aceite: nova dependência nativa, migração dos temas para AppCompat e mais um passo ao abrir. Testes: `test/unit/security/app_lock_controller_test.dart`, `test/unit/settings/app_settings_repository_test.dart` e `test/widget/app_lock_test.dart`.
 

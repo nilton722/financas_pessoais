@@ -71,6 +71,21 @@ Future<void> tapVisible(WidgetTester tester, Finder finder) async {
   await settle(tester);
 }
 
+/// Percorre a lista até o widget ser construído (ListViews são preguiçosas)
+/// e o deixa visível, sem tocar.
+Future<void> scrollToVisible(
+  WidgetTester tester,
+  Finder finder, {
+  double delta = 200,
+}) async {
+  await tester.scrollUntilVisible(
+    finder,
+    delta,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pump();
+}
+
 /// Alterna tempo simulado e real até [condition] aparecer. Necessário para
 /// operações de ficheiro: cada `await` de I/O só continua no `pump` seguinte.
 /// O `pump` avança o relógio simulado para que animações (diálogos, rotas)

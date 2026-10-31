@@ -131,11 +131,12 @@ void main() {
     expect(find.byKey(const Key('settings-privacy')), findsOneWidget);
     expect(find.textContaining('não se liga à internet'), findsOneWidget);
     expect(find.textContaining('não são cifrados'), findsOneWidget);
-    expect(find.textContaining('não tem PIN nem biometria'), findsOneWidget);
+    expect(find.textContaining('barreira de interface'), findsOneWidget);
     expect(find.text('Onde estão os dados'), findsOneWidget);
     expect(find.text('Backup e restauração'), findsOneWidget);
     expect(find.text('Relatórios e exportação'), findsOneWidget);
 
+    await scrollToVisible(tester, find.byKey(const Key('settings-backups')));
     await tester.tap(find.byKey(const Key('settings-backups')));
     await pumpDisk(tester, find.text('Ainda sem backups'));
     expect(find.widgetWithText(AppBar, 'Backup e restauração'), findsOneWidget);

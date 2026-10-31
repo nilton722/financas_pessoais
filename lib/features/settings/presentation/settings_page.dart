@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_tokens.dart';
 import '../../../core/app_info.dart';
 import '../../../core/backup/backup_format.dart';
+import '../../../core/security/device_auth_providers.dart';
 import '../../../core/widgets/section_card.dart';
 import '../domain/app_settings.dart';
 import 'backup_providers.dart';
@@ -18,6 +19,9 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final settings = ref.watch(appSettingsProvider).value;
+    final lockEnabled = ref.watch(lockPreferenceProvider).value ?? false;
+    final authSupport = ref.watch(deviceAuthSupportProvider);
+    final supportsLock = authSupport.value ?? false;
     final dataDirectory = ref.watch(appDataDirectoryProvider).value;
     final backupsDirectory = ref.watch(backupsDirectoryProvider).value;
     final exportsDirectory = ref.watch(exportsDirectoryProvider).value;
@@ -55,9 +59,52 @@ class SettingsPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 const Text(
-                  'Esta versão não tem PIN nem biometria. Um eventual '
-                  'bloqueio de ecrã não cifra a base: é apenas uma barreira '
-                  'visual. Para proteção real, use o bloqueio do sistema.',
+                  'Com o bloqueio do telefone ativado, a aplicação pede o '
+                  'PIN, padrão, palavra-passe ou biometria do sistema ao '
+                  'abrir e depois de 60 segundos em segundo plano. É apenas '
+                  'uma barreira de interface: não cifra a base nem os '
+                  'backups. Para proteção real, proteja o desbloqueio do '
+                  'telefone.',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SectionCard(
+            key: const Key('settings-lock'),
+            leading: Icon(
+              Icons.lock_person_outlined,
+              color: theme.colorScheme.primary,
+            ),
+            title: 'Bloqueio',
+            subtitle: 'Proteção ao abrir a aplicação',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  key: const Key('settings-lock-switch'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Pedir bloqueio do telefone ao abrir'),
+                  subtitle: Text(
+                    authSupport.isLoading
+                        ? 'A verificar o dispositivo…'
+                        : supportsLock
+                        ? 'Usa o PIN, padrão, palavra-passe ou biometria do '
+                              'telefone.'
+                        : 'Configure um PIN, padrão ou biometria no telefone '
+                              'para usar esta opção.',
+                  ),
+                  value: lockEnabled,
+                  onChanged: supportsLock
+                      ? (value) => _setLock(ref, value)
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'A aplicação volta a pedir o desbloqueio depois de 60 '
+                  'segundos em segundo plano. O bloqueio não cifra a base de '
+                  'dados nem os backups.',
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),
@@ -205,6 +252,11 @@ class SettingsPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _setLock(WidgetRef ref, bool enabled) async {
+    await ref.read(appSettingsRepositoryProvider).saveLockOnOpen(enabled);
+    ref.invalidate(lockPreferenceProvider);
   }
 
   Future<void> _copy(BuildContext context, String path) async {

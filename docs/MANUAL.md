@@ -68,8 +68,8 @@ semeadas uma única vez. Montantes são sempre inteiros de FCFA/XOF.
 - **Relatórios** — por período, categoria ou conta, com rendimentos, despesas,
   resultado e transferências à parte. A exportação CSV é sempre iniciada pelo
   utilizador.
-- **Definições** — privacidade, caminhos de dados/backups/exportações, versão e
-  acesso aos backups.
+- **Definições** — privacidade, bloqueio ao abrir, caminhos de
+  dados/backups/exportações, versão e acesso aos backups.
 
 ## Backup e restauração
 
@@ -96,6 +96,23 @@ semeadas uma única vez. Montantes são sempre inteiros de FCFA/XOF.
 
 Detalhe do formato, validação e recuperação: [BACKUP.md](BACKUP.md).
 
+## Bloqueio ao abrir
+
+Em **Definições → Bloqueio**, ative **Pedir bloqueio do telefone ao abrir**. A
+opção só fica disponível quando o telefone tem PIN, padrão, palavra-passe ou
+biometria configurados no sistema.
+
+- Ao abrir a aplicação, o sistema pede o desbloqueio do telefone. Cancelar
+  mantém o ecrã de bloqueio, onde pode tentar novamente.
+- Depois de 60 segundos em segundo plano, o pedido volta a aparecer. Regressos
+  rápidos, como escolher um ficheiro para importar, mantêm a sessão aberta.
+- O bloqueio é uma barreira de interface: os dados, backups e exportações
+  continuam sem cifra. Não é um PIN próprio da aplicação.
+- Se remover o PIN do telefone, a aplicação explica a situação e abre com
+  aviso; o interruptor fica desativado até haver credenciais.
+- Restaurar um backup criado com a opção ligada ativa o pedido neste telefone,
+  usando as credenciais locais.
+
 ## Privacidade
 
 - Tudo é local: base SQLite privada da app, backups e exportações no
@@ -103,9 +120,10 @@ Detalhe do formato, validação e recuperação: [BACKUP.md](BACKUP.md).
 - A versão de release **não pede a permissão `INTERNET`**; `INTERNET` existe
   apenas nos manifestos de debug/profile para ferramentas de desenvolvimento.
 - Não há analytics, publicidade, telemetria nem envio de dados financeiros.
-- Não há PIN nem biomeria: quem desbloquear o telefone consegue abrir a app. Os
-  dados não estão cifrados em repouso. Use bloqueio do dispositivo e backups
-  guardados em local seguro.
+- O bloqueio opcional usa as credenciais do sistema; a app não recebe nem
+  guarda PIN ou biometria, e os dados continuam sem cifra em repouso. Quem
+  desbloquear o telefone e a aplicação consegue ler a base. Proteja o
+  dispositivo e guarde as cópias em local seguro.
 - Logs não incluem dados financeiros pessoais.
 
 Detalhe: [PRIVACY.md](PRIVACY.md).
@@ -125,6 +143,10 @@ Detalhe: [PRIVACY.md](PRIVACY.md).
   backups e exportações só saem da pasta da aplicação por `adb pull`; a
   importação por seletor de ficheiros continua disponível.
 - Não é possível abrir uma base criada por uma versão mais recente do esquema.
+- O bloqueio ao abrir depende do bloqueio do telefone e é apenas uma barreira
+  de interface: não cifra a base nem os backups, e não protege contra root ou
+  acesso direto aos ficheiros. Sem credenciais no sistema, a aplicação abre com
+  aviso.
 
 ## Atualização
 

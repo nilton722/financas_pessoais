@@ -12,6 +12,7 @@ class AppSettingsRepository {
   static const String currencyCodeKey = 'currency_code';
   static const String localeKey = 'locale';
   static const String timeZoneKey = 'time_zone';
+  static const String lockOnOpenKey = 'lock_on_open';
 
   Future<AppSettings> load() async {
     final rows = await _db.select(_db.appSettings).get();
@@ -41,5 +42,24 @@ class AppSettingsRepository {
           ),
       ], mode: InsertMode.insertOrReplace);
     });
+  }
+
+  Future<bool> loadLockOnOpen() async {
+    final row = await (_db.select(
+      _db.appSettings,
+    )..where((table) => table.key.equals(lockOnOpenKey))).getSingleOrNull();
+    return row?.value == 'true';
+  }
+
+  Future<void> saveLockOnOpen(bool enabled) async {
+    await _db
+        .into(_db.appSettings)
+        .insertOnConflictUpdate(
+          AppSettingsCompanion.insert(
+            key: lockOnOpenKey,
+            value: enabled ? 'true' : 'false',
+            updatedAt: utcNowIsoString(),
+          ),
+        );
   }
 }

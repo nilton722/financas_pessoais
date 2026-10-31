@@ -11,3 +11,7 @@ final appSettingsRepositoryProvider = Provider<AppSettingsRepository>(
 final appSettingsProvider = FutureProvider<AppSettings>(
   (ref) => ref.watch(appSettingsRepositoryProvider).load(),
 );
+
+final lockPreferenceProvider = FutureProvider<bool>(
+  (ref) => ref.watch(appSettingsRepositoryProvider).loadLockOnOpen(),
+);

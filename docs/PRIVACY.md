@@ -23,19 +23,26 @@ fora da aplicação.
 - Contas (nome, tipo, moeda, saldo inicial e data), categorias, movimentos,
   compromissos, recorrências, orçamentos, metas e dívidas.
 - Configurações locais de moeda, idioma e fuso horário.
+- A preferência de bloqueio ao abrir (`lock_on_open`). É apenas um valor
+  booleano: a aplicação não guarda PIN, padrão, palavra-passe nem dados
+  biométricos.
 - Timestamps técnicos de criação e atualização.
 - Não são guardadas credenciais bancárias, números de cartão, contactos,
   localização, microfone, câmara nem identificadores de publicidade.
 
 ## Permissões móveis
 
-O manifesto principal (`android/app/src/main/AndroidManifest.xml`) não declara
-permissões de armazenamento, localização, contactos ou câmara. As variantes
-`debug` e `profile` acrescentam apenas `INTERNET`, exigida pelo Flutter para
-hot reload e depuração; a variante **release** não a inclui. Os backups e
-exportações são escritos na pasta externa específica da aplicação
-(`Android/data/<pacote>/files`), que não exige permissão e é removida com a
-desinstalação. A exportação é sempre iniciada pelo utilizador.
+O manifesto principal (`android/app/src/main/AndroidManifest.xml`) declara
+apenas a permissão normal `USE_BIOMETRIC`, necessária para pedir ao sistema o
+desbloqueio do telefone. Não é uma permissão de dados: a aplicação não recebe
+biometria nem credenciais, apenas o resultado da verificação feita pelo
+Android/iOS. Não são declaradas permissões de armazenamento, localização,
+contactos ou câmara. As variantes `debug` e `profile` acrescentam apenas
+`INTERNET`, exigida pelo Flutter para hot reload e depuração; a variante
+**release** não a inclui. Os backups e exportações são escritos na pasta externa
+específica da aplicação (`Android/data/<pacote>/files`), que não exige permissão
+e é removida com a desinstalação. A exportação é sempre iniciada pelo
+utilizador.
 
 A importação de backups usa o seletor de documentos do sistema (Storage Access
 Framework no Android, `UIDocumentPicker` no iOS) através do plugin oficial
@@ -48,15 +55,19 @@ faz chamadas de rede.
 - A base SQLite, os backups e as exportações **não são cifrados**. Quem tiver
   acesso físico aos ficheiros (por exemplo, num dispositivo desbloqueado ou com
   root) consegue lê-los.
-- Esta versão **não implementa PIN nem biometria**. Um eventual bloqueio de
-  interface seria apenas uma barreira visual: não cifra a base nem os ficheiros.
-- A proteção disponível é o bloqueio do sistema (PIN, padrão, biometria do
-  Android) e a guarda das cópias fora do dispositivo.
+- O bloqueio ao abrir é **opcional** e usa o PIN, padrão, palavra-passe ou
+  biometria do telefone através das APIs do sistema (`local_auth`). É uma
+  barreira de interface: impede ver a aplicação sem desbloquear o telefone, mas
+  **não cifra** a base nem os ficheiros. A aplicação volta a pedir o
+  desbloqueio após 60 segundos em segundo plano.
+- A verificação biométrica é feita pelo Android/iOS. A aplicação não recebe nem
+  guarda dados biométricos; só sabe se a autenticação foi confirmada.
+- Se o telefone não tiver credenciais configuradas, a aplicação explica a
+  situação e permite abrir sem bloqueio, para não ficar inacessível.
+- A proteção disponível continua a ser o bloqueio do sistema (PIN, padrão,
+  biometria do Android) e a guarda das cópias fora do dispositivo.
 - O checksum dos backups deteta corrupção acidental, não é uma assinatura
   criptográfica e não impede uma edição intencional.
-- Se uma versão futura introduzir PIN ou biometria, usará APIs seguras da
-  plataforma para o bloqueio de acesso; a limitação da base não cifrada será
-  mantida explícita, salvo decisão documentada em contrário.
 
 ## Logs e mensagens
 

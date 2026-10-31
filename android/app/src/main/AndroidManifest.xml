@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Permite delegar no sistema o pedido de desbloqueio do telefone. Não dá
+         acesso a dados biométricos nem pede permissões em tempo de execução. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <application
         android:label="Nô Dinheru"
         android:name="${applicationName}"

@@ -50,7 +50,9 @@ Inclui as 12 tabelas de dados do utilizador (contas, categorias, configurações
 movimentos, compromissos e pagamentos, recorrências e ocorrências, orçamentos,
 metas, dívidas e pagamentos) com os IDs e valores SQLite originais. A tabela
 técnica `schema_migrations` fica de fora: descreve a migração da base, não o
-conteúdo.
+conteúdo. O objeto `settings` pode incluir a preferência `lock_on_open`; se o
+backup tiver sido criado com o bloqueio ativo, o restauro volta a pedir o
+desbloqueio do telefone no dispositivo atual, com as credenciais locais.
 
 O `checksum` é FNV-1a de 32 bits sobre o conteúdo. Deteta corrupção acidental
 (ficheiro truncado ou editado por engano), mas **não é uma assinatura
