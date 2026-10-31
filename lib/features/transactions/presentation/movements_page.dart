@@ -17,11 +17,18 @@ import '../../categories/presentation/categories_providers.dart';
 import '../domain/movement.dart';
 import 'transactions_providers.dart';
 
-class MovementsPage extends ConsumerWidget {
+class MovementsPage extends ConsumerStatefulWidget {
   const MovementsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MovementsPage> createState() => _MovementsPageState();
+}
+
+class _MovementsPageState extends ConsumerState<MovementsPage> {
+  bool _showFilters = false;
+
+  @override
+  Widget build(BuildContext context) {
     final filter = ref.watch(movementFilterProvider);
     final controller = ref.read(movementFilterProvider.notifier);
     final result = ref.watch(movementListProvider(filter));
@@ -36,7 +43,26 @@ class MovementsPage extends ConsumerWidget {
         const <Category>[];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Movimentos')),
+      appBar: AppBar(
+        title: const Text('Movimentos'),
+        actions: [
+          IconButton(
+            tooltip: _showFilters ? 'Ocultar filtros' : 'Mostrar filtros',
+            isSelected: _showFilters,
+            icon: Badge(
+              isLabelVisible: filter.isActive,
+              smallSize: 6,
+              child: const Icon(Icons.tune),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: filter.isActive,
+              smallSize: 6,
+              child: const Icon(Icons.filter_alt),
+            ),
+            onPressed: () => setState(() => _showFilters = !_showFilters),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/movements/new'),
         icon: const Icon(Icons.add),
@@ -44,16 +70,23 @@ class MovementsPage extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          _FilterBar(
-            filter: filter,
-            accounts: accounts,
-            categories: categories,
-            onKindChanged: controller.setKind,
-            onAccountChanged: controller.setAccount,
-            onCategoryChanged: controller.setCategory,
-            onRangePicked: (range) =>
-                controller.setRange(range?.start, range?.end),
-            onClear: controller.clear,
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: _showFilters
+                ? _FilterBar(
+                    filter: filter,
+                    accounts: accounts,
+                    categories: categories,
+                    onKindChanged: controller.setKind,
+                    onAccountChanged: controller.setAccount,
+                    onCategoryChanged: controller.setCategory,
+                    onRangePicked: (range) =>
+                        controller.setRange(range?.start, range?.end),
+                    onClear: controller.clear,
+                  )
+                : const SizedBox(width: double.infinity),
           ),
           _TotalsBar(
             totals: result.value?.totals ?? MovementTotals.zero,

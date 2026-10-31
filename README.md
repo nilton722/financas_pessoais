@@ -13,6 +13,8 @@ credenciais do telefone validado no emulador. As Fases 01–07 estão concluída
 Tudo offline, sem backend nem telemetria.
 
 Manual de instalação e uso: [docs/MANUAL.md](docs/MANUAL.md).
+Guia de funcionalidades (quando usar cada uma e o que muda nos números):
+[docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIONALIDADES.md).
 Relatório de validação desta fase e defeitos conhecidos:
 [docs/VALIDACAO-FASE-07.md](docs/VALIDACAO-FASE-07.md); anterior:
 [docs/VALIDACAO-FASE-06.md](docs/VALIDACAO-FASE-06.md).
@@ -77,7 +79,7 @@ test/
   widget/         arranque, navegação e fluxos de criação/validação
   integration/    jornada completa: lançamento, previsão, backup e restauro
 docs/             SPEC, decisões (ADR), modelo de dados, backup, privacidade,
-                  design system, manual de uso e validação de release
+                  design system, manual, guia de funcionalidades e validação
 ```
 
 Camadas: widgets não contêm SQL nem regras financeiras; acesso a dados passa
@@ -113,6 +115,7 @@ Design system e regras de exibição: [docs/DESIGN.md](docs/DESIGN.md).
 Backup, exportação e recuperação: [docs/BACKUP.md](docs/BACKUP.md).
 Privacidade e limitações de proteção local: [docs/PRIVACY.md](docs/PRIVACY.md).
 Instalação, uso e assinatura de release: [docs/MANUAL.md](docs/MANUAL.md).
+Quando usar cada funcionalidade: [docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIONALIDADES.md).
 
 ## Notas de ambiente (Windows)
 

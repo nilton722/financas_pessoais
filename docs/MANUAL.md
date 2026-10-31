@@ -3,6 +3,11 @@
 Aplicação Android offline de finanças pessoais. Não tem backend, login remoto,
 anúncios, analytics nem telemetria.
 
+Para escolher entre funcionalidades parecidas (movimento, transferência,
+compromisso, recorrência, dívida, orçamento ou meta) e perceber o efeito de
+cada uma nos saldos, nos relatórios e na previsão, consulte o
+[Guia de funcionalidades](GUIA-FUNCIONALIDADES.md).
+
 ## Instalação
 
 ### Desenvolvimento
@@ -46,8 +51,9 @@ semeadas uma única vez. Montantes são sempre inteiros de FCFA/XOF.
 ## Uso diário
 
 - **Movimentos** — rendimento, despesa ou transferência, com conta, categoria,
-  data, montante, descrição e notas. Filtre por período, conta, tipo ou
-  categoria; edite ou elimine (eliminação lógica, com confirmação).
+  data, montante, descrição e notas. O ícone de filtros no topo abre os campos
+  de período, conta, tipo e categoria; edite ou elimine (eliminação lógica, com
+  confirmação).
 - **Transferências** — escolha conta de origem e destino. Movem dinheiro entre
   contas próprias: não são rendimento nem despesa e não alteram o saldo
   consolidado. Só são permitidas entre contas com a mesma moeda.
