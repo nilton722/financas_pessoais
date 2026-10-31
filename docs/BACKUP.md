@@ -1,8 +1,10 @@
 # Backup, exportação e recuperação
 
 A aplicação guarda tudo no dispositivo. Este documento descreve onde estão os
-ficheiros, como criar e restaurar um backup, como exportar um relatório e o que
-fazer para recuperar dados. Nada é enviado para servidores.
+ficheiros, como criar, guardar e restaurar um backup, como exportar um relatório
+e o que fazer para recuperar dados. A aplicação não envia dados para servidores;
+quando escolhe um destino externo no seletor do sistema, é o serviço escolhido
+(por exemplo, Google Drive) que recebe o ficheiro.
 
 ## Onde ficam os dados
 
@@ -20,10 +22,11 @@ caminhos exatos aparecem em **Definições → Onde estão os dados**, com botã
 copiar.
 
 A partir do Android 11, `Android/data` fica oculta nos gestores de ficheiros e
-na transferência USB (MTP). Para retirar ficheiros do telefone, use `adb pull`
-com depuração USB ativa. Para trazer um backup de outro dispositivo não é
-preciso escrever na pasta da aplicação: use **Importar de um ficheiro** (ver
-abaixo), que autoriza apenas o ficheiro escolhido.
+na transferência USB (MTP). Para retirar ficheiros do telefone, use **Guardar
+backup em…** (recomendado) ou `adb pull` com depuração USB ativa. Para trazer um
+backup de outro dispositivo não é preciso escrever na pasta da aplicação: use
+**Importar de um ficheiro** (ver abaixo), que autoriza apenas o ficheiro
+escolhido.
 
 A base SQLite fica na área privada da aplicação e não é acessível sem root; os
 backups e exportações são cópias legíveis na pasta visível.
@@ -64,6 +67,23 @@ criptográfica** e não impede uma edição intencional. O ficheiro não é cifr
 acontece por ação do utilizador e produz `backup-AAAAMMDD-HHMMSS-SSS.json` na
 pasta `backups`. A lista mostra data, número de registos, tamanho e integridade
 verificada. Um backup inválido aparece marcado e não pode ser restaurado.
+
+## Guardar fora do dispositivo
+
+**Definições → Backup e restauração → Guardar backup em…** cria um backup novo e
+abre imediatamente o seletor de gravação do sistema, com o nome já preenchido.
+O destino pode ser Downloads, um cartão SD, Google Drive, OneDrive ou outro
+fornecedor instalado; a escolha é sempre do utilizador e pode ser cancelada.
+
+No Android é usado o Storage Access Framework (`ACTION_CREATE_DOCUMENT`): a
+aplicação escreve apenas no ficheiro escolhido e não recebe acesso a pastas nem
+permissões de armazenamento. A aplicação não fala com a rede: se escolher um
+serviço de nuvem, a transferência é feita pela aplicação desse serviço, com as
+regras e a conta do utilizador. No desktop, o mesmo botão abre o diálogo de
+gravação do sistema.
+
+A cópia fica também na pasta local `backups`; se cancelar o seletor, essa cópia
+local mantém-se e a aplicação informa que nada foi guardado fora do dispositivo.
 
 ## Restaurar
 
@@ -123,13 +143,14 @@ ficam de fora. PDF fica para uma fase futura.
 ## Copiar para fora do dispositivo
 
 O backup e a exportação só protegem os dados se existir uma cópia fora do
-telefone. Depois de criar o ficheiro, copie-o para um computador, cartão de
-memória ou serviço de armazenamento que preferir. A aplicação não faz upload nem
-sincronização.
+telefone. Use **Guardar backup em…** para escolher Downloads, Google Drive,
+OneDrive, um cartão SD ou outro destino no seletor do sistema. A aplicação não
+faz upload nem sincronização: quem transfere o ficheiro para a nuvem é o serviço
+escolhido, sujeito à conta e à política desse fornecedor.
 
-No Android 11 ou mais recente, a pasta `Android/data` está oculta nos gestores
-de ficheiros e na transferência USB; nesses dispositivos, a forma de retirar os
-ficheiros é `adb pull` (com depuração USB ativa):
+No Android 11 ou mais recente, a pasta `Android/data` continua oculta nos
+gestores de ficheiros e na transferência USB; para retirar os ficheiros já
+escritos na pasta da aplicação, use `adb pull` (com depuração USB ativa):
 
 ```bash
 adb pull /sdcard/Android/data/ao.gb.financas_pessoais/files/backups ./backups
@@ -153,21 +174,26 @@ desinstalar ou trocar de dispositivo.
   qualquer alteração; os dados atuais ficam como estavam. Use outra cópia.
 - **Perdeu o dispositivo ou trocou de telefone:** só uma cópia externa permite
   recuperar. Instale a aplicação, abra-a uma vez e use **Definições → Backup e
-  restauração → Importar de um ficheiro** para escolher o JSON (por exemplo, em
-  Downloads). Não é necessário copiá-lo para a pasta da aplicação.
+  restauração → Importar de um ficheiro** para escolher o JSON (por exemplo, no
+  Google Drive ou em Downloads). Não é necessário copiá-lo para a pasta da
+  aplicação.
 - **Relatório CSV:** pode ser aberto ou reimportado numa folha de cálculo sem a
   aplicação; não substitui o backup, porque não contém planeamento nem
   configurações.
 
 ## Limitações de proteção local
 
-- A base SQLite, os backups e as exportações **não são cifrados**.
-- Esta versão **não tem PIN nem biometria**. Um bloqueio de interface seria uma
-  barreira visual, não cifragem da base.
+- A base SQLite, os backups e as exportações **não são cifrados**. Um backup
+  guardado no Google Drive ou noutro serviço fica legível para quem tiver acesso
+  a esse ficheiro na conta.
+- A aplicação não tem PIN nem cifra a base; o bloqueio opcional depende das
+  credenciais do telefone e é uma barreira de interface.
 - Num dispositivo desbloqueado ou com root, quem tiver acesso físico consegue
-  ler os ficheiros. A proteção disponível é o bloqueio do sistema e a guarda das
-  cópias.
+  ler os ficheiros. A proteção disponível é o bloqueio do sistema, a conta do
+  fornecedor de nuvem e a guarda das cópias.
 - O checksum deteta corrupção acidental, não adulteração intencional.
+- O destino externo é escolhido no seletor do sistema; a aplicação não controla
+  a retenção, as versões nem a sincronização feitas pelo fornecedor.
 
 ## Testes que cobrem este processo
 
@@ -177,5 +203,5 @@ desinstalar ou trocar de dispositivo.
 `test/widget/backup_flow_test.dart` e `test/widget/reports_flow_test.dart`.
 Cobrem backup → restauro com comparação de dados, ficheiro corrompido, versão de
 esquema não suportada, falha com reversão, importação de ficheiro externo
-(válida e inválida), CSV com acentos e separadores, estados vazios e
-confirmação.
+(válida e inválida), gravação no destino escolhido e cancelamento da gravação,
+CSV com acentos e separadores, estados vazios e confirmação.

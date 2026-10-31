@@ -94,11 +94,15 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
                   Text(
                     'No Android, esta pasta pertence à aplicação e não exige '
                     'permissões de armazenamento; a app nunca pede acesso '
-                    'global a ficheiros. A partir do Android 11, a pasta '
+                    'global a ficheiros. Use "Guardar backup em…" para copiar '
+                    'o ficheiro para Downloads, Google Drive, OneDrive ou '
+                    'outro destino escolhido no seletor do sistema; a app não '
+                    'acede à rede. A partir do Android 11, a pasta '
                     'Android/data fica oculta nos gestores de ficheiros e na '
-                    'transferência USB. Para recuperar um backup de outro '
-                    'dispositivo, use "Importar de um ficheiro"; para retirar '
-                    'ficheiros, use a depuração USB (adb).',
+                    'transferência USB; a depuração USB (adb) continua a '
+                    'permitir retirar ficheiros dessa pasta. Para recuperar '
+                    'um backup de outro dispositivo, use "Importar de um '
+                    'ficheiro".',
                     style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -111,6 +115,12 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
                         onPressed: _busy ? null : _create,
                         icon: const Icon(Icons.save_outlined),
                         label: const Text('Criar backup agora'),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('backup-save-to'),
+                        onPressed: _busy ? null : _saveTo,
+                        icon: const Icon(Icons.save_alt),
+                        label: const Text('Guardar backup em…'),
                       ),
                       OutlinedButton.icon(
                         key: const Key('backup-import'),
@@ -215,6 +225,51 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(failure.message)));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _saveTo() async {
+    setState(() => _busy = true);
+    BackupListItem? created;
+    try {
+      final service = ref.read(backupServiceProvider);
+      created = await service.createBackup();
+      ref.invalidate(backupListProvider);
+      final contents = await ref.read(backupStorageProvider).read(created.file);
+      final saved = await ref.read(backupFileSaverProvider)(
+        fileName: created.file.fileName,
+        contents: contents,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved
+                ? 'Backup guardado no destino escolhido: '
+                      '${created.file.fileName}.'
+                : 'Backup criado na aplicação, mas não foi guardado fora '
+                      'do dispositivo.',
+          ),
+        ),
+      );
+    } on AppFailure catch (failure) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              created == null
+                  ? failure.message
+                  : '${failure.message} A cópia local foi mantida.',
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) {

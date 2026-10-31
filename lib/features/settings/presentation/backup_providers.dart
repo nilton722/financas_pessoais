@@ -6,6 +6,7 @@ import '../../../core/database/database_providers.dart';
 import '../../../core/files/app_files.dart';
 import '../../../core/files/app_files_provider.dart';
 import '../data/backup_file_picker.dart';
+import '../data/backup_file_saver.dart';
 
 final backupStorageProvider = Provider<BackupStorage>(
   (ref) => BackupStorage(ref.watch(appFilesProvider)),
@@ -24,6 +25,10 @@ final backupListProvider = FutureProvider<List<BackupListItem>>(
 
 final backupFilePickerProvider = Provider<BackupFilePicker>(
   (ref) => pickBackupFile,
+);
+
+final backupFileSaverProvider = Provider<BackupFileSaver>(
+  (ref) => saveBackupFile,
 );
 
 final appDataDirectoryProvider = FutureProvider<String>(

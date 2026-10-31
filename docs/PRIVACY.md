@@ -6,7 +6,8 @@ proteção nesta versão.
 
 ## Dados apenas no dispositivo
 
-- Não há backend, login remoto, sincronização nem contas na nuvem.
+- Não há backend, login remoto, sincronização nem contas na nuvem geridas pela
+  aplicação.
 - A aplicação não faz chamadas de rede no fluxo principal e funciona em modo
   avião depois de instalada.
 - Não usa analytics, anúncios, telemetria, rastreio nem relatórios de falhas
@@ -15,8 +16,11 @@ proteção nesta versão.
 
 Flutter, Drift/SQLite e `path_provider` são bibliotecas locais; não enviam dados
 por si. O utilizador pode, por ação própria, copiar backups ou exportações para
-fora do dispositivo (USB, cartão, armazenamento escolhido) — essa cópia é feita
-fora da aplicação.
+fora do dispositivo. O botão **Guardar backup em…** abre o seletor de gravação
+do sistema; se o utilizador escolher um serviço de nuvem (Google Drive,
+OneDrive, etc.), é esse serviço, com a conta e as regras do utilizador, que
+recebe e sincroniza o ficheiro. A aplicação não tem permissão `INTERNET` no
+release e não participa nessa transferência.
 
 ## O que é guardado
 
@@ -46,15 +50,21 @@ utilizador.
 
 A importação de backups usa o seletor de documentos do sistema (Storage Access
 Framework no Android, `UIDocumentPicker` no iOS) através do plugin oficial
-`file_selector`. O utilizador autoriza apenas o ficheiro escolhido; a aplicação
-não recebe acesso a pastas nem pede permissões de armazenamento, e o plugin não
-faz chamadas de rede.
+`file_selector`. A gravação de backups fora da pasta usa o mesmo mecanismo
+(`ACTION_CREATE_DOCUMENT` no Android) através do `file_picker`. Em ambos os
+casos, o utilizador autoriza apenas o ficheiro escolhido; a aplicação não
+recebe acesso a pastas nem pede permissões de armazenamento, e nenhum dos
+plugins faz chamadas de rede.
 
 ## Proteção local e limitações
 
 - A base SQLite, os backups e as exportações **não são cifrados**. Quem tiver
   acesso físico aos ficheiros (por exemplo, num dispositivo desbloqueado ou com
   root) consegue lê-los.
+- Um backup guardado num serviço de nuvem fica legível para quem tiver acesso a
+  esse ficheiro na conta do fornecedor. A escolha do destino e a proteção da
+  conta são responsabilidade do utilizador; a aplicação não controla retenção,
+  versões nem sincronização do fornecedor.
 - O bloqueio ao abrir é **opcional** e usa o PIN, padrão, palavra-passe ou
   biometria do telefone através das APIs do sistema (`local_auth`). É uma
   barreira de interface: impede ver a aplicação sem desbloquear o telefone, mas

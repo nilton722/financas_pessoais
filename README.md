@@ -149,6 +149,10 @@ Quando usar cada funcionalidade: [docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIO
 - Backup JSON versionado (formato v1, esquema v4) com as 12 tabelas de dados,
   configurações, contagens e checksum; pré-visualização e confirmação antes de
   restaurar.
+- **Guardar backup em…** pelo seletor de gravação do sistema (Storage Access
+  Framework no Android), para Downloads, Google Drive, OneDrive ou outro
+  destino. A app continua sem permissão `INTERNET`; a transferência para a
+  nuvem, quando escolhida, é feita pelo fornecedor — ADR-038.
 - Importação de backup por seletor de ficheiros do sistema (Storage Access
   Framework), sem permissões de armazenamento; o ficheiro escolhido é validado
   e restaurado com a mesma transação atómica e cópia `pre-restore` — ADR-036.

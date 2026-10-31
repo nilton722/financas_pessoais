@@ -385,16 +385,23 @@ que permite repor a app completa.
 
 ## Backup, importar e restaurar
 
-Estas três ações parecem iguais, mas servem para coisas diferentes.
+Estas ações parecem iguais, mas servem para coisas diferentes.
 
 | Ação | Quando usar | O que faz |
 |---|---|---|
-| **Criar backup agora** | Rotina, antes de atualizar, antes de mudar de telefone | Cria um JSON com todas as tabelas e configurações |
+| **Criar backup agora** | Rotina, antes de atualizar, antes de mudar de telefone | Cria um JSON com todas as tabelas e configurações na pasta da app |
+| **Guardar backup em…** | Quer a cópia fora do telefone (Drive, Downloads, cartão SD) | Cria um backup e abre o seletor de gravação do sistema |
 | **Restaurar** | Voltar atrás ou repor num telefone onde o ficheiro já está na lista | Valida, cria uma cópia `pre-restore` e substitui toda a base |
-| **Importar de um ficheiro** | O backup está fora da app (Downloads, cartão SD, outro telefone) | Abre o seletor do sistema, valida e restaura o ficheiro escolhido |
+| **Importar de um ficheiro** | O backup está fora da app (Drive, Downloads, cartão SD, outro telefone) | Abre o seletor do sistema, valida e restaura o ficheiro escolhido |
 
 **Como criar.** **Definições → Backup e restauração → Criar backup agora.** A
 lista mostra data, número de registos, tamanho e integridade.
+
+**Como guardar fora.** **Guardar backup em…** cria um backup novo e abre logo o
+seletor do sistema com o nome preenchido. Escolha Downloads, Google Drive,
+OneDrive, um cartão SD ou outro destino. A app não acede à rede: se escolher
+uma nuvem, é a aplicação desse fornecedor que transfere o ficheiro, com a sua
+conta. Cancelar o seletor mantém apenas a cópia local.
 
 **Como restaurar.** Toque no backup da lista, confirme a pré-visualização e
 **Restaurar**, depois **Substituir dados**. Antes de substituir, a app cria
@@ -405,11 +412,17 @@ numa única transação; se falhar, a base atual fica intacta.
 do sistema. Não são pedidas permissões de armazenamento. O ficheiro é validado
 e restaurado com as mesmas regras do restauro local.
 
+**Como recuperar num telefone novo.** Instale a app, abra-a uma vez e use
+**Importar de um ficheiro** para escolher o backup que guardou no Drive ou em
+Downloads. Não precisa de copiar o ficheiro para a pasta da app.
+
 **O que muda.** O restauro **substitui** todos os dados; não funde backups.
 Configurações como o bloqueio ao abrir também são repostas. O checksum deteta
-corrupção acidental, mas o ficheiro não é cifrado nem assinado: proteja-o e
-guarde cópias fora do telefone. Em Android 11 ou mais recente, a pasta da app
-fica oculta; use `adb pull` para retirar o ficheiro.
+corrupção acidental, mas o ficheiro não é cifrado nem assinado: um backup no
+Drive fica legível para quem tiver acesso a essa conta. Proteja a conta e
+guarde cópias em locais diferentes. Em Android 11 ou mais recente, a pasta da
+app fica oculta; use **Guardar backup em…** (ou `adb pull` para ficheiros já
+escritos nessa pasta).
 
 **Cuidados.** Um backup só no telefone perde-se ao desinstalar ou perder o
 aparelho. Faça cópias periódicas para fora. Se restaurar por engano, a cópia

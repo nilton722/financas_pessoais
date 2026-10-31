@@ -191,6 +191,88 @@ void main() {
     await disposeApp(tester);
   });
 
+  testWidgets('guarda uma cópia no destino escolhido pelo sistema', (
+    tester,
+  ) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final root = createRoot();
+    await createTestAccount(db, name: 'Carteira', openingBalance: 10000);
+    String? savedName;
+    String? savedContents;
+
+    await pumpApp(
+      tester,
+      db,
+      filesRoot: () async => root,
+      overrides: [
+        backupFileSaverProvider.overrideWithValue(({
+          required String fileName,
+          required String contents,
+        }) async {
+          savedName = fileName;
+          savedContents = contents;
+          return true;
+        }),
+      ],
+    );
+
+    await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
+    await scrollToVisible(tester, find.byKey(const Key('settings-backups')));
+    await tester.tap(find.byKey(const Key('settings-backups')));
+    await pumpDisk(tester, find.text('Ainda sem backups'));
+
+    await tester.tap(find.byKey(const Key('backup-save-to')));
+    await pumpDisk(tester, find.textContaining('Backup guardado'));
+
+    expect(savedName, startsWith('backup-'));
+    final snapshot = BackupSnapshot.decode(savedContents!);
+    expect(snapshot.totalRows, greaterThan(0));
+    expect(find.textContaining('Backup guardado'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+    await pumpDisk(tester, find.byKey(const Key('backup-list')));
+    expect(find.byKey(const Key('backup-list')), findsOneWidget);
+
+    await disposeApp(tester);
+  });
+
+  testWidgets('cancelar a gravação externa mantém a cópia local', (
+    tester,
+  ) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final root = createRoot();
+    await createTestAccount(db, name: 'Carteira', openingBalance: 10000);
+
+    await pumpApp(
+      tester,
+      db,
+      filesRoot: () async => root,
+      overrides: [
+        backupFileSaverProvider.overrideWithValue(
+          ({required String fileName, required String contents}) async => false,
+        ),
+      ],
+    );
+
+    await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
+    await scrollToVisible(tester, find.byKey(const Key('settings-backups')));
+    await tester.tap(find.byKey(const Key('settings-backups')));
+    await pumpDisk(tester, find.text('Ainda sem backups'));
+
+    await tester.tap(find.byKey(const Key('backup-save-to')));
+    await pumpDisk(tester, find.textContaining('não foi guardado fora'));
+
+    final files = backupsFolder(root)
+        .listSync()
+        .whereType<File>()
+        .where((file) => file.uri.pathSegments.last.startsWith('backup-'));
+    expect(files, hasLength(1));
+
+    await disposeApp(tester);
+  });
+
   Future<void> runImportFlow(WidgetTester tester, {Size? size}) async {
     final db = openMemoryDatabase();
     addTearDown(db.close);

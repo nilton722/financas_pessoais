@@ -79,23 +79,29 @@ semeadas uma única vez. Montantes são sempre inteiros de FCFA/XOF.
 
 ## Backup e restauração
 
-- **Criar backup**: Definições → Backups → *Criar backup*. É gerado um JSON
+- **Criar backup**: Definições → Backup e restauração → *Criar backup agora*.
+  É gerado um JSON
   versionado com as 12 tabelas de dados, configurações, contagens e checksum.
+- **Guardar backup em…**: cria um backup novo e abre o seletor de gravação do
+  sistema para escolher Downloads, Google Drive, OneDrive, cartão SD ou outro
+  destino. A app escreve apenas no ficheiro escolhido e não acede à rede; a
+  transferência para a nuvem, quando escolhida, é feita pelo serviço do
+  fornecedor. A cópia local também fica em `backups`.
 - **Restaurar**: toque no ficheiro, confirme a pré-visualização e a advertência.
   Antes de substituir, a app cria um backup de segurança `pre-restore-…json` da
   base atual. O restauro corre numa única transação; se algo falhar, a base
   atual fica intacta.
 - **Importar de um ficheiro**: use esta opção para recuperar um backup guardado
-  fora da aplicação (por exemplo, recebido de outro telefone, em Downloads). O
-  seletor de documentos do sistema dá acesso apenas ao ficheiro escolhido; não
-  são pedidas permissões de armazenamento. A validação, a confirmação e a cópia
-  `pre-restore-…json` são as mesmas do restauro local.
+  fora da aplicação (por exemplo, no Google Drive, em Downloads ou recebido de
+  outro telefone). O seletor de documentos do sistema dá acesso apenas ao
+  ficheiro escolhido; não são pedidas permissões de armazenamento. A validação,
+  a confirmação e a cópia `pre-restore-…json` são as mesmas do restauro local.
 - **Onde ficam os ficheiros**: no Android, em
   `Android/data/ao.gb.financas_pessoais/files/backups` (e `exports` para CSV).
   No desktop, na pasta de documentos da aplicação. Os caminhos exatos aparecem
   em Definições. A partir do Android 11, a pasta `Android/data` fica oculta nos
   gestores de ficheiros e na transferência USB; para retirar cópias use
-  `adb pull` com depuração USB ativa.
+  *Guardar backup em…* ou `adb pull` com depuração USB ativa.
 - Copie periodicamente o backup para fora do telefone. O ficheiro de backup
   não é cifrado nem assinado: o checksum deteta corrupção acidental, não
   adulteração. Proteja o acesso ao telefone e às cópias.
@@ -145,9 +151,11 @@ Detalhe: [PRIVACY.md](PRIVACY.md).
 - As recorrências materializam compromissos planeados, não movimentos
   realizados; o caixa só muda quando o compromisso é pago.
 - O restauro substitui toda a base. Não há fusão de backups.
-- Não há partilha integrada (share sheet). Em Android 11 ou mais recente, os
-  backups e exportações só saem da pasta da aplicação por `adb pull`; a
-  importação por seletor de ficheiros continua disponível.
+- Não há partilha integrada (share sheet). Os backups saem pelo seletor de
+  gravação (*Guardar backup em…*); em Android 11 ou mais recente, os ficheiros
+  já escritos na pasta da aplicação só saem por `adb pull`. As exportações CSV
+  continuam na pasta `exports`. A importação por seletor de ficheiros está
+  disponível.
 - Não é possível abrir uma base criada por uma versão mais recente do esquema.
 - O bloqueio ao abrir depende do bloqueio do telefone e é apenas uma barreira
   de interface: não cifra a base nem os backups, e não protege contra root ou
