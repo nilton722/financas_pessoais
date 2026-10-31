@@ -147,3 +147,46 @@ Regras de apresentação:
 - Datas apresentadas `DD/MM/YYYY`; listas de movimentos agrupadas por dia com total diário.
 - Transferências, planeamento e previsão mantêm cores e rótulos próprios; a cor nunca é o único indicador de estado.
 Motivo: os ecrãs tinham estilos e formatos locais divergentes, o que tornava a comparação de valores difícil e a manutenção repetitiva. Centralizar tokens, componentes e formatters garante consistência, contraste nos dois modos e uma única regra testável para montantes, percentagens e datas. A alteração é apenas de apresentação: não muda o esquema SQLite, as regras financeiras nem a privacidade offline. Custo aceite: um novo ecrã deve reutilizar os componentes existentes em vez de criar o seu próprio estilo.
+
+## ADR-033 — Identidade visual Nô Dinheru e ícones gerados sem dependências
+**Estado:** aceite. A aplicação passa a apresentar-se como **Nô Dinheru**, com o slogan “O teu dinheiro, sob controlo.”, ícone de moeda esmeralda com aro dourado, letra N branca e moeda dourada sobreposta. A paleta oficial (`#087F5B`, `#104B3C`, `#E8C66A`, `#F5F8F5`, `#182923`, `#E47768`) substitui as superfícies areia e o teal anterior; `FinanceColors` foi harmonizada mantendo o contraste semântico nos dois modos. Referência completa: [DESIGN.md](DESIGN.md).
+Regras:
+- Os recursos mestres ficam em `assets/branding/`; Android recebe ícones legacy por densidade, ícone adaptativo (foreground + cor de fundo) e splash; iOS recebe `AppIcon.appiconset` em todos os tamanhos.
+- Os ícones são gerados a partir do mestre com ferramentas locais; não é adicionada a dependência `flutter_launcher_icons` nem qualquer pacote novo.
+- `applicationId`/bundle identifier mantêm-se (`ao.gb.financas_pessoais`); apenas o nome visível passa a “Nô Dinheru”. O rótulo “Finanças Pessoais” do ADR-031 fica substituído.
+- O logótipo completo é usado no arranque pré-Android 12 e na secção **Sobre** das definições; no Android 12+ o splash do sistema mostra apenas o ícone. O ícone isolado fica reservado ao launcher e a contextos compactos.
+- A alteração é apenas de apresentação: não modifica lógica financeira, esquema SQLite, backups, exportações, privacidade offline nem dados existentes.
+Motivo: consolidar a marca antes do lançamento, garantir legibilidade em tamanhos pequenos e manter o projeto livre de dependências gráficas adicionais. Custo aceite: qualquer alteração futura ao mestre obriga a regenerar os tamanhos Android/iOS.
+
+**Nota:** o ADR-032 descreve a estrutura do design system; a sua paleta teal/areia é substituída por este ADR.
+
+
+## ADR-034 — Ícone oficial aprovado e splash ligado à inicialização
+**Estado:** aceite. A arte aprovada da marca passa a ser o ícone fornecido pela equipa — quadrado esmeralda arredondado, “N” branco, aro/mancha dourada e pilha de moedas — e substitui a arte gerada referida no ADR-033. Os ícones Android (legacy e adaptativo), o `AppIcon.appiconset` iOS, o ícone `foreground`, os logótipos de Sobre e o lockup do splash foram regenerados a partir dessa arte com ferramentas locais. Não foi adicionada qualquer dependência (`flutter_launcher_icons` continua ausente) e `applicationId`/bundle identifier mantêm-se.
+O arranque passa a ter duas camadas contínuas:
+- **Nativo:** fundo `#087F5B`; pré-Android 12 mostra o lockup completo (quadrado branco, ícone, nome, slogan e “Finanças pessoais • Guiné-Bissau”); Android 12+ mostra apenas o ícone, por limitação do sistema. No iOS, a `LaunchScreen` usa o mesmo fundo e o mesmo lockup.
+- **Flutter:** `SplashPage` reproduz a composição com animações discretas (fade-in e escala do ícone; nome, slogan e identificação por fases) e `SplashGate` mantém-na por cima da aplicação até `appStartupProvider` terminar — abrir a base SQLite com as migrações e carregar as definições — e a animação de entrada completar; depois desvanece em 320 ms. Não é usado nenhum temporizador para atrasar artificialmente a abertura. Falhas de inicialização não prendem o utilizador: o splash sai e o painel mostra a falha recuperável já existente.
+- O splash usa `BrandColors` fixas para ser igual em modo claro e escuro; com animações desativadas no sistema apresenta a composição estática. O conteúdo adapta-se ao lado mais curto do ecrã e pode rolar em alturas reduzidas.
+- A alteração é apenas de apresentação: não muda o esquema SQLite, os cálculos financeiros, a navegação, os backups, a privacidade offline nem os dados existentes.
+Motivo: usar a arte oficial sem a alterar, manter uma abertura profissional e contínua em Android/iOS e garantir que a aplicação só é revelada depois de a base local estar pronta. Custo aceite: alterações futuras à arte obrigam a regenerar todos os tamanhos e o lockup nativo; no Android 12+ o sistema nunca mostra a composição completa no splash nativo.
+
+
+## ADR-035 — Barra inferior adaptativa com etiquetas de linha única
+**Estado:** aceite. A barra de navegação deixa de usar `NavigationBar` diretamente e passa a usar `AppNavigationBar` (`lib/app/shell/app_navigation_bar.dart`). O `NavigationBar` do Material 3 não limita a etiqueta a uma linha: em ecrãs estreitos, ou com texto ampliado, “Movimentos” quebrava em duas linhas e desalinhava os destinos. Na nova barra cada etiqueta é renderizada numa única linha com `FittedBox(scaleDown)`, encolhendo apenas o necessário para caber na largura do destino.
+Regras:
+- A barra mantém o aspeto do `navigationBarTheme` (altura 72, fundo, indicador arredondado, cores e pesos das etiquetas e ícones) e adapta a largura do indicador à largura de cada destino.
+- Cada destino expõe `Semantics(button, selected, label, onTap)` para leitores de ecrã; o toque continua a cobrir toda a área do destino.
+- O encolhimento da etiqueta é a última linha de defesa: em larguras normais o texto mantém o tamanho do tema; em 320 dp com texto a 130% continua legível numa linha, sem quebras nem truncagem.
+- Navegação, rotas e lógica financeira não mudam; apenas o widget de apresentação da barra. Testes: `test/widget/app_navigation_bar_test.dart` cobre 320×568 com texto a 130% e o toque nos destinos.
+Motivo: os cinco destinos são fixos e os seus nomes não podem ser abreviados sem perder clareza; quebrar a etiqueta desalinha a barra e esconde conteúdo. Custo aceite: a barra deixa de herdar automaticamente futuras alterações internas do `NavigationBar` do Flutter, pelo que deve ser mantida em paralelo com o `navigationBarTheme`.
+
+## ADR-036 — Sem permissões de armazenamento; importação por seletor de ficheiros
+**Estado:** aceite. A aplicação mantém-se sem permissões de armazenamento no manifesto de release. No Android, a base privada, os backups e as exportações continuam na pasta específica da aplicação (`Android/data/ao.gb.financas_pessoais`, via `getExternalStorageDirectory`), que não exige autorização; a partir do Android 11 essa pasta fica oculta nos gestores de ficheiros e na transferência USB (MTP).
+Para recuperar dados de outro dispositivo, a página de backup passa a ter **Importar de um ficheiro**, que usa `file_selector` 1.1.0 (plugin oficial Flutter) para abrir o seletor de documentos do sistema — Storage Access Framework no Android. O utilizador autoriza apenas o ficheiro escolhido; a aplicação não recebe acesso a pastas nem declara permissões. O conteúdo passa por `BackupSnapshot.decode` e por `BackupService.restoreExternal`, que reutiliza a mesma cópia `pre-restore-…json` e a mesma transação atómica do restauro local. O ficheiro importado não é copiado para a pasta `backups`; é restaurado diretamente.
+Regras:
+- Não são declaradas `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`, `MANAGE_EXTERNAL_STORAGE` nem permissões equivalentes no Android, nem se pede acesso global a ficheiros.
+- O manifesto de release continua sem `INTERNET`; `file_selector` apenas abre seletores nativos e não faz chamadas de rede.
+- A validação do ficheiro importado é a mesma do restauro local (formato, versão, esquema, tipos, contagens e checksum) e qualquer falha não altera a base.
+- Os textos de Definições e Backup explicam que a pasta `Android/data` está oculta em Android 11+ e que a retirada de ficheiros exige `adb pull`.
+Motivo: pedir armazenamento amplo seria desproporcionado para uma app offline que só precisa dos próprios ficheiros, e o SAF é a autorização mínima suportada. A importação resolve a limitação prática de a pasta `Android/data` estar oculta em Android 11+, permitindo recuperar um backup copiado para Downloads. Custo aceite: retirar backups e exportações do dispositivo em Android 11+ exige depuração USB (`adb`); não há partilha integrada. Testes: `test/unit/backup/backup_service_test.dart` (importação válida e inválida) e `test/widget/backup_flow_test.dart` (fluxo completo com seletor simulado).
+

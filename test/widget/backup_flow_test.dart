@@ -2,8 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:financas_pessoais/core/backup/backup_format.dart';
+import 'package:financas_pessoais/core/backup/backup_service.dart';
+import 'package:financas_pessoais/core/backup/backup_storage.dart';
 import 'package:financas_pessoais/core/files/app_files.dart';
 import 'package:financas_pessoais/core/formatters/date_formatter.dart';
+import 'package:financas_pessoais/features/settings/data/backup_file_picker.dart';
+import 'package:financas_pessoais/features/settings/presentation/backup_providers.dart';
 import 'package:financas_pessoais/features/transactions/data/transaction_repository.dart';
 import 'package:financas_pessoais/features/transactions/domain/movement.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +32,18 @@ void main() {
     '${root.path}${Platform.pathSeparator}${AppFiles.backupsFolder}',
   );
 
+  /// JSON de um backup criado noutra instalação, com uma conta diferente.
+  Future<String> externalBackup(Directory root) async {
+    final sourceDb = openMemoryDatabase();
+    addTearDown(sourceDb.close);
+    await createTestAccount(sourceDb, name: 'Importada', openingBalance: 42000);
+    final created = await BackupService(
+      sourceDb,
+      BackupStorage(AppFiles(rootResolver: () async => root)),
+    ).createBackup();
+    return created.snapshot!.toJsonString();
+  }
+
   testWidgets('cria backup, restaura e preserva a base anterior', (
     tester,
   ) async {
@@ -42,6 +58,8 @@ void main() {
     await pumpApp(tester, db, filesRoot: () async => root);
 
     await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
+    await tester.ensureVisible(find.byKey(const Key('settings-backups')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('settings-backups')));
     await pumpDisk(tester, find.text('Ainda sem backups'));
     expect(find.text('Ainda sem backups'), findsOneWidget);
@@ -169,6 +187,120 @@ void main() {
     await tapVisible(tester, find.text('futuro.json'));
     expect(find.textContaining('esquema v5'), findsWidgets);
     expect(find.byKey(const Key('backup-restore')), findsNothing);
+
+    await disposeApp(tester);
+  });
+
+  Future<void> runImportFlow(WidgetTester tester, {Size? size}) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final root = createRoot();
+    await createTestAccount(db, name: 'Carteira', openingBalance: 10000);
+    final contents = (await tester.runAsync(
+      () => externalBackup(createRoot()),
+    ))!;
+
+    await pumpApp(
+      tester,
+      db,
+      filesRoot: () async => root,
+      size: size ?? const Size(800, 1600),
+      overrides: [
+        backupFilePickerProvider.overrideWithValue(
+          () async => PickedBackup(
+            fileName: 'noutro-telefone.json',
+            contents: contents,
+          ),
+        ),
+      ],
+    );
+
+    await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
+    await tester.ensureVisible(find.byKey(const Key('settings-backups')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('settings-backups')));
+    await pumpDisk(tester, find.text('Ainda sem backups'));
+    expect(find.byKey(const Key('backup-import')), findsOneWidget);
+
+    await tapVisible(tester, find.byKey(const Key('backup-import')));
+    await pumpDisk(tester, find.text('noutro-telefone.json'));
+    expect(find.textContaining('Ficheiro importado'), findsOneWidget);
+    expect(find.textContaining('Integridade verificada'), findsOneWidget);
+
+    await tapVisible(tester, find.byKey(const Key('backup-restore')));
+    expect(find.text('Restaurar este backup?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('backup-confirm-restore')));
+    await pumpDisk(tester, find.text('Backup restaurado'));
+    expect(find.textContaining('pre-restore'), findsWidgets);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Concluir'));
+    await pumpDisk(
+      tester,
+      find.descendant(
+        of: find.byKey(const Key('backup-list')),
+        matching: find.textContaining('pre-restore'),
+      ),
+    );
+
+    final rows = await tester.runAsync(
+      () => db.customSelect('SELECT name, opening_balance FROM accounts').get(),
+    );
+    expect(rows, hasLength(1));
+    expect(rows!.single.read<String>('name'), 'Importada');
+    expect(rows.single.read<int>('opening_balance'), 42000);
+
+    await disposeApp(tester);
+  }
+
+  testWidgets('importa um backup de um ficheiro externo', (tester) async {
+    await runImportFlow(tester);
+  });
+
+  testWidgets('importação em ecrã de telemóvel não transborda', (tester) async {
+    await runImportFlow(tester, size: const Size(411, 891));
+  });
+
+  testWidgets('importar ficheiro inválido não altera os dados', (tester) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final root = createRoot();
+    await createTestAccount(db, name: 'Carteira', openingBalance: 10000);
+
+    await pumpApp(
+      tester,
+      db,
+      filesRoot: () async => root,
+      overrides: [
+        backupFilePickerProvider.overrideWithValue(
+          () async => const PickedBackup(
+            fileName: 'mau.json',
+            contents: '{"format": "outra_coisa"}',
+          ),
+        ),
+      ],
+    );
+
+    await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
+    await tester.ensureVisible(find.byKey(const Key('settings-backups')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('settings-backups')));
+    await pumpDisk(tester, find.text('Ainda sem backups'));
+
+    await tapVisible(tester, find.byKey(const Key('backup-import')));
+    await pumpDisk(
+      tester,
+      find.textContaining('não é um backup desta aplicação'),
+    );
+    expect(
+      find.textContaining('não é um backup desta aplicação'),
+      findsOneWidget,
+    );
+
+    final rows = await tester.runAsync(
+      () => db.customSelect('SELECT name FROM accounts').get(),
+    );
+    expect(rows, hasLength(1));
+    expect(rows!.single.read<String>('name'), 'Carteira');
 
     await disposeApp(tester);
   });

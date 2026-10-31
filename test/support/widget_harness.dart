@@ -1,10 +1,12 @@
 import 'package:financas_pessoais/app/app.dart';
+import 'package:financas_pessoais/app/shell/app_navigation_bar.dart';
 import 'package:financas_pessoais/core/database/app_database.dart';
 import 'package:financas_pessoais/core/database/database_providers.dart';
 import 'package:financas_pessoais/core/files/app_files.dart';
 import 'package:financas_pessoais/core/files/app_files_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Teto para `pumpAndSettle`: um temporizador pendente deve falhar depressa
@@ -19,17 +21,23 @@ Future<void> settle(WidgetTester tester) => tester.pumpAndSettle(
 /// evitando falhas de toque por conteúdo fora da área renderizada.
 ///
 /// [filesRoot] substitui a pasta de dados da aplicação por uma pasta
-/// temporária nos testes de backup e exportação.
+/// temporária nos testes de backup e exportação. [overrides] acrescenta
+/// substituições de providers, por exemplo o seletor de ficheiros.
 Future<void> pumpApp(
   WidgetTester tester,
   AppDatabase db, {
   AppFilesRootResolver? filesRoot,
+  List<Override> overrides = const [],
+  Size size = const Size(800, 1600),
+  double textScaleFactor = 1,
 }) async {
-  tester.view.physicalSize = const Size(800, 1600);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
+  tester.platformDispatcher.textScaleFactorTestValue = textScaleFactor;
   addTearDown(() {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
+    tester.platformDispatcher.clearTextScaleFactorTestValue();
   });
 
   await tester.pumpWidget(
@@ -38,6 +46,7 @@ Future<void> pumpApp(
         appDatabaseProvider.overrideWithValue(db),
         if (filesRoot != null)
           appFilesRootResolverProvider.overrideWithValue(filesRoot),
+        ...overrides,
       ],
       child: const FinancasApp(),
     ),
@@ -47,7 +56,10 @@ Future<void> pumpApp(
 
 Future<void> tapNavigation(WidgetTester tester, String label) async {
   await tester.tap(
-    find.descendant(of: find.byType(NavigationBar), matching: find.text(label)),
+    find.descendant(
+      of: find.byType(AppNavigationBar),
+      matching: find.text(label),
+    ),
   );
   await settle(tester);
 }

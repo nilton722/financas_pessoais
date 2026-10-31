@@ -5,6 +5,7 @@ import 'package:financas_pessoais/features/planning/data/budget_repository.dart'
 import 'package:financas_pessoais/features/planning/data/debt_repository.dart';
 import 'package:financas_pessoais/features/planning/data/planning_repository.dart';
 import 'package:financas_pessoais/features/planning/data/savings_goal_repository.dart';
+import 'package:financas_pessoais/features/planning/domain/budget.dart';
 import 'package:financas_pessoais/features/planning/domain/planned_item.dart';
 import 'package:financas_pessoais/features/planning/domain/recurrence.dart';
 import 'package:financas_pessoais/features/transactions/data/transaction_repository.dart';
@@ -159,6 +160,46 @@ void main() {
     final budgets = await BudgetRepository(db).readMonth(FinancialDate.today());
     expect(budgets.single.spent, 3000);
     expect(budgets.single.limitAmount, 5000);
+  });
+
+  testWidgets('alterar limite fecha o diálogo sem erro de controller', (
+    tester,
+  ) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    await createTestAccount(db, name: 'Carteira');
+    await BudgetRepository(db).save(
+      BudgetDraft(
+        categoryId: seededFoodCategoryId,
+        limitAmount: 5000,
+        periodStart: FinancialDate.today(),
+      ),
+    );
+    await pumpApp(tester, db);
+
+    await tapNavigation(tester, 'Plano');
+    await tapVisible(tester, find.text('Orçamentos'));
+    await tapVisible(tester, find.byType(PopupMenuButton<String>));
+    await tapVisible(tester, find.text('Alterar limite'));
+
+    expect(find.text('Limite mensal'), findsOneWidget);
+    expect(find.text('5000'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, '7500');
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Guardar'));
+    await pumpDisk(tester, find.text('Limite atualizado.'));
+    expect(find.text('Limite atualizado.'), findsOneWidget);
+
+    // Reabrir e cancelar também não pode usar um controller já libertado.
+    await tapVisible(tester, find.byType(PopupMenuButton<String>));
+    await tapVisible(tester, find.text('Alterar limite'));
+    await tapVisible(tester, find.widgetWithText(TextButton, 'Cancelar'));
+    expect(find.text('Limite mensal'), findsNothing);
+
+    await disposeApp(tester);
+
+    final budgets = await BudgetRepository(db).readMonth(FinancialDate.today());
+    expect(budgets.single.limitAmount, 7500);
   });
 
   testWidgets('dívida só altera o caixa através do pagamento', (tester) async {

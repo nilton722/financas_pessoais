@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import 'router.dart';
+import 'splash/splash_gate.dart';
 import 'theme/app_theme.dart';
 
 class FinancasApp extends StatefulWidget {
@@ -24,7 +25,7 @@ class _FinancasAppState extends State<FinancasApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Finanças Pessoais',
+      title: 'Nô Dinheru',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
@@ -36,6 +37,8 @@ class _FinancasAppState extends State<FinancasApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       routerConfig: _router,
+      builder: (context, child) =>
+          SplashGate(child: child ?? const SizedBox.shrink()),
     );
   }
 }

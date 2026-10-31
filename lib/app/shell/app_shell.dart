@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'app_navigation_bar.dart';
+
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child});
 
@@ -35,12 +37,11 @@ class AppShell extends StatelessWidget {
     final location = GoRouterState.of(context).uri.path;
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: AppNavigationBar(
         selectedIndex: _indexFor(location),
         onDestinationSelected: (index) => context.go(tabs[index].path),
         destinations: [
-          for (final tab in tabs)
-            NavigationDestination(icon: Icon(tab.icon), label: tab.label),
+          for (final tab in tabs) (icon: tab.icon, label: tab.label),
         ],
       ),
     );

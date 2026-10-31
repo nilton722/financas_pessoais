@@ -1,7 +1,12 @@
-# Finanças Pessoais
+# Nô Dinheru
 
 Aplicação mobile de finanças pessoais para uso individual: Flutter/Dart, SQLite
 local, offline-first. Sem backend, sem login remoto, sem telemetria.
+
+Identidade oficial: **Nô Dinheru — O teu dinheiro, sob controlo.** O ícone
+oficial, o logótipo, a paleta e o splash vivem em `assets/branding/` e nas
+configurações nativas; os ícones Android/iOS são gerados a partir da arte
+aprovada sem dependências adicionais.
 
 **Estado:** Fase 06 (validação e preparação para lançamento) concluída — testes
 de integração ponta a ponta, migração v3→v4 com dados, modo avião validado,
@@ -12,8 +17,8 @@ sem backend nem telemetria.
 Manual de instalação e uso: [docs/MANUAL.md](docs/MANUAL.md).
 Relatório de validação e defeitos conhecidos:
 [docs/VALIDACAO-FASE-06.md](docs/VALIDACAO-FASE-06.md).
-Design system, tokens e política de apresentação de dados:
-[docs/DESIGN.md](docs/DESIGN.md) (ADR-032).
+Design system, marca, tokens e política de apresentação de dados:
+[docs/DESIGN.md](docs/DESIGN.md) (ADR-032, ADR-033 e ADR-034).
 
 ## Requisitos
 
@@ -138,12 +143,16 @@ Instalação, uso e assinatura de release: [docs/MANUAL.md](docs/MANUAL.md).
 - Backup JSON versionado (formato v1, esquema v4) com as 12 tabelas de dados,
   configurações, contagens e checksum; pré-visualização e confirmação antes de
   restaurar.
+- Importação de backup por seletor de ficheiros do sistema (Storage Access
+  Framework), sem permissões de armazenamento; o ficheiro escolhido é validado
+  e restaurado com a mesma transação atómica e cópia `pre-restore` — ADR-036.
 - Restauro atómico: valida o ficheiro, cria uma cópia `pre-restore-…json` da
   base atual e substitui tudo numa única transação SQLite com verificação de
   contagens e chaves estrangeiras; um erro não deixa base parcial — ADR-028.
 - Definições com privacidade, caminhos dos dados/backups/exportações e versão;
-  a app não pede permissões de armazenamento e a exportação é sempre iniciada
-  pelo utilizador — ver [docs/PRIVACY.md](docs/PRIVACY.md).
+  a app não pede permissões de armazenamento e backup, exportação e importação
+  são sempre iniciados pelo utilizador — ver
+  [docs/PRIVACY.md](docs/PRIVACY.md).
 - Compromissos futuros de rendimento/despesa com vencimento, conta e categoria
   opcionais; pagamento total ou parcial cria exatamente um movimento real e
   nunca duplica o caixa. Cancelar remove a previsão e mantém pagamentos.

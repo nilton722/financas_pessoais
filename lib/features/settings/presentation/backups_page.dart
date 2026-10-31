@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_tokens.dart';
 import '../../../core/backup/backup_format.dart';
 import '../../../core/backup/backup_service.dart';
+import '../../../core/backup/backup_storage.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/date_formatter.dart';
 import '../../../core/formatters/plural_formatter.dart';
@@ -89,17 +92,33 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Copie os ficheiros para um local seguro (computador, '
-                    'cartão ou armazenamento externo). Sem essa cópia, '
-                    'perder o dispositivo significa perder os dados.',
+                    'No Android, esta pasta pertence à aplicação e não exige '
+                    'permissões de armazenamento; a app nunca pede acesso '
+                    'global a ficheiros. A partir do Android 11, a pasta '
+                    'Android/data fica oculta nos gestores de ficheiros e na '
+                    'transferência USB. Para recuperar um backup de outro '
+                    'dispositivo, use "Importar de um ficheiro"; para retirar '
+                    'ficheiros, use a depuração USB (adb).',
                     style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  FilledButton.icon(
-                    key: const Key('backup-create'),
-                    onPressed: _busy ? null : _create,
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('Criar backup agora'),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: [
+                      FilledButton.icon(
+                        key: const Key('backup-create'),
+                        onPressed: _busy ? null : _create,
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('Criar backup agora'),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('backup-import'),
+                        onPressed: _busy ? null : _import,
+                        icon: const Icon(Icons.file_open_outlined),
+                        label: const Text('Importar de um ficheiro'),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -204,12 +223,62 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
     }
   }
 
-  Future<void> _open(BackupListItem item) async {
+  Future<void> _import() async {
+    setState(() => _busy = true);
+    try {
+      final picked = await ref.read(backupFilePickerProvider)();
+      if (picked == null) {
+        return;
+      }
+      final snapshot = BackupSnapshot.decode(picked.contents);
+      if (!mounted) {
+        return;
+      }
+      final item = BackupListItem(
+        file: StoredBackup(
+          fileName: picked.fileName,
+          path: picked.fileName,
+          sizeBytes: utf8.encode(picked.contents).length,
+          modifiedAt: DateTime.now(),
+        ),
+        snapshot: snapshot,
+      );
+      setState(() => _busy = false);
+      await _open(item, externalContents: picked.contents);
+    } on AppFailure catch (failure) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(failure.message)));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _open(BackupListItem item, {String? externalContents}) async {
     final proceed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(item.file.fileName),
-        content: SingleChildScrollView(child: _BackupDetails(item: item)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (externalContents != null) ...[
+                Text(
+                  'Ficheiro importado de fora da aplicação. Restaurar '
+                  'substitui os dados atuais pelos deste documento.',
+                  style: Theme.of(dialogContext).textTheme.bodySmall,
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              _BackupDetails(item: item),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -261,13 +330,16 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
     if (confirmed != true) {
       return;
     }
-    await _restore(item);
+    await _restore(item, externalContents: externalContents);
   }
 
-  Future<void> _restore(BackupListItem item) async {
+  Future<void> _restore(BackupListItem item, {String? externalContents}) async {
     setState(() => _busy = true);
     try {
-      final outcome = await ref.read(backupServiceProvider).restore(item);
+      final service = ref.read(backupServiceProvider);
+      final outcome = externalContents == null
+          ? await service.restore(item)
+          : await service.restoreExternal(externalContents);
       if (!mounted) {
         return;
       }

@@ -83,7 +83,7 @@ class SettingsPage extends ConsumerWidget {
                   leading: const Icon(Icons.backup_outlined),
                   title: const Text('Backup e restauração'),
                   subtitle: const Text(
-                    'Criar, listar, validar e restaurar cópias dos dados',
+                    'Criar, listar, validar, restaurar e importar cópias',
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/settings/backups'),
@@ -121,10 +121,14 @@ class SettingsPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'No Android, estas pastas ficam na área específica da '
-                  'aplicação e não exigem permissões de armazenamento. '
-                  'Pode copiar os ficheiros por USB ou por um gestor de '
-                  'ficheiros. A exportação é sempre iniciada por você.',
+                  'No Android, estas pastas pertencem à aplicação e não '
+                  'exigem permissões de armazenamento: a app nunca pede '
+                  'acesso global a ficheiros. A partir do Android 11, a pasta '
+                  'Android/data fica oculta nos gestores de ficheiros e na '
+                  'transferência USB. Para importar um backup de outro '
+                  'dispositivo, use "Backup e restauração → Importar de um '
+                  'ficheiro"; para retirar ficheiros, use a depuração USB '
+                  '(adb).',
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -167,9 +171,33 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
+          SectionCard(
+            key: const Key('settings-about'),
+            title: 'Sobre',
+            child: Column(
+              children: [
+                Image.asset(
+                  theme.brightness == Brightness.dark
+                      ? 'assets/branding/no_dinheru_logo_dark.png'
+                      : 'assets/branding/no_dinheru_logo.png',
+                  key: const Key('settings-brand-logo'),
+                  width: 200,
+                  semanticLabel: 'Nô Dinheru — O teu dinheiro, sob controlo.',
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Aplicação local de finanças pessoais. '
+                  'Os teus dados ficam apenas neste dispositivo.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'Finanças Pessoais ${AppInfo.version} (${AppInfo.build}) · '
+            'Nô Dinheru ${AppInfo.version} (${AppInfo.build}) · '
             'esquema v$backupSchemaVersion · dados apenas neste dispositivo.',
             style: theme.textTheme.bodySmall,
             textAlign: TextAlign.center,

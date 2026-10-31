@@ -79,10 +79,17 @@ semeadas uma única vez. Montantes são sempre inteiros de FCFA/XOF.
   Antes de substituir, a app cria um backup de segurança `pre-restore-…json` da
   base atual. O restauro corre numa única transação; se algo falhar, a base
   atual fica intacta.
+- **Importar de um ficheiro**: use esta opção para recuperar um backup guardado
+  fora da aplicação (por exemplo, recebido de outro telefone, em Downloads). O
+  seletor de documentos do sistema dá acesso apenas ao ficheiro escolhido; não
+  são pedidas permissões de armazenamento. A validação, a confirmação e a cópia
+  `pre-restore-…json` são as mesmas do restauro local.
 - **Onde ficam os ficheiros**: no Android, em
   `Android/data/ao.gb.financas_pessoais/files/backups` (e `exports` para CSV).
   No desktop, na pasta de documentos da aplicação. Os caminhos exatos aparecem
-  em Definições.
+  em Definições. A partir do Android 11, a pasta `Android/data` fica oculta nos
+  gestores de ficheiros e na transferência USB; para retirar cópias use
+  `adb pull` com depuração USB ativa.
 - Copie periodicamente o backup para fora do telefone. O ficheiro de backup
   não é cifrado nem assinado: o checksum deteta corrupção acidental, não
   adulteração. Proteja o acesso ao telefone e às cópias.
@@ -114,6 +121,9 @@ Detalhe: [PRIVACY.md](PRIVACY.md).
 - As recorrências materializam compromissos planeados, não movimentos
   realizados; o caixa só muda quando o compromisso é pago.
 - O restauro substitui toda a base. Não há fusão de backups.
+- Não há partilha integrada (share sheet). Em Android 11 ou mais recente, os
+  backups e exportações só saem da pasta da aplicação por `adb pull`; a
+  importação por seletor de ficheiros continua disponível.
 - Não é possível abrir uma base criada por uma versão mais recente do esquema.
 
 ## Atualização

@@ -69,6 +69,18 @@ class BackupService {
     }
     final contents = await _storage.read(item.file);
     final snapshot = BackupSnapshot.decode(contents);
+    return _restoreSnapshot(snapshot);
+  }
+
+  /// Restaura um backup escolhido fora da pasta da aplicação (seletor de
+  /// ficheiros do sistema). O conteúdo é validado e substituído na mesma
+  /// transação do restauro normal, com cópia de segurança prévia.
+  Future<RestoreOutcome> restoreExternal(String contents) async {
+    final snapshot = BackupSnapshot.decode(contents);
+    return _restoreSnapshot(snapshot);
+  }
+
+  Future<RestoreOutcome> _restoreSnapshot(BackupSnapshot snapshot) async {
     final safetySnapshot = await _capture();
     final safetyFile = await _storage.write(
       safetySnapshot.toJsonString(),

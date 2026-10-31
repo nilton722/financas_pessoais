@@ -129,52 +129,17 @@ class BudgetsPage extends ConsumerWidget {
     WidgetRef ref,
     Budget budget,
   ) async {
-    final controller = TextEditingController(
-      text: MoneyInputParser.formatPlain(budget.limitAmount),
-    );
-    String? error;
-    final saved = await showDialog<bool>(
+    final limit = await showDialog<int>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setState) => AlertDialog(
-          title: Text(budget.categoryName),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Limite mensal',
-              suffixText: 'FCFA',
-              errorText: error,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final limit = MoneyInputParser.parseXof(controller.text);
-                if (limit == null) {
-                  setState(
-                    () => error = MoneyInputParser.validate(controller.text),
-                  );
-                  return;
-                }
-                Navigator.of(dialogContext).pop(true);
-                _saveLimit(context, ref, budget, limit);
-              },
-              child: const Text('Guardar'),
-            ),
-          ],
-        ),
+      builder: (dialogContext) => _LimitDialog(
+        categoryName: budget.categoryName,
+        initialLimit: budget.limitAmount,
       ),
     );
-    controller.dispose();
-    if (saved != true) {
+    if (limit == null || !context.mounted) {
       return;
     }
+    await _saveLimit(context, ref, budget, limit);
   }
 
   Future<void> _saveLimit(
@@ -240,6 +205,62 @@ class BudgetsPage extends ConsumerWidget {
     } on AppFailure catch (failure) {
       messenger.showSnackBar(SnackBar(content: Text(failure.message)));
     }
+  }
+}
+
+class _LimitDialog extends StatefulWidget {
+  const _LimitDialog({required this.categoryName, required this.initialLimit});
+
+  final String categoryName;
+  final int initialLimit;
+
+  @override
+  State<_LimitDialog> createState() => _LimitDialogState();
+}
+
+class _LimitDialogState extends State<_LimitDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: MoneyInputParser.formatPlain(widget.initialLimit),
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final limit = MoneyInputParser.parseXof(_controller.text);
+    if (limit == null) {
+      setState(() => _error = MoneyInputParser.validate(_controller.text));
+      return;
+    }
+    Navigator.of(context).pop(limit);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.categoryName),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          labelText: 'Limite mensal',
+          suffixText: 'FCFA',
+          errorText: _error,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Guardar')),
+      ],
+    );
   }
 }
 

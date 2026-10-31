@@ -326,16 +326,16 @@ class _ForecastChart extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Máx. ${MoneyFormatter.formatXof(maximum)} · '
+            'Mín. ${MoneyFormatter.formatXof(result.lowestBalance)}',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: AppSpacing.xxs),
           Row(
             children: [
               Text(
                 _formatDate(days.isEmpty ? result.cutoff : days.first.date),
-                style: theme.textTheme.bodySmall,
-              ),
-              const Spacer(),
-              Text(
-                'Máx. ${MoneyFormatter.formatXof(maximum)} · '
-                'Mín. ${MoneyFormatter.formatXof(result.lowestBalance)}',
                 style: theme.textTheme.bodySmall,
               ),
               const Spacer(),

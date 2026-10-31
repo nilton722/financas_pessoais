@@ -143,4 +143,39 @@ void main() {
 
     await disposeApp(tester);
   });
+
+  testWidgets('definições apresentam a marca e o slogan no Sobre', (
+    tester,
+  ) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final root = createRoot();
+
+    await pumpApp(tester, db, filesRoot: () async => root);
+    await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('settings-about')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byKey(const Key('settings-brand-logo')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.semanticLabel ==
+                'Nô Dinheru — O teu dinheiro, sob controlo.',
+      ),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('Nô Dinheru 1.0.0'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('Nô Dinheru 1.0.0'), findsOneWidget);
+
+    await disposeApp(tester);
+  });
 }

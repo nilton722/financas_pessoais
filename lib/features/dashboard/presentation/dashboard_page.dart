@@ -34,7 +34,7 @@ class DashboardPage extends ConsumerWidget {
     final balances = ref.watch(accountBalancesProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Finanças Pessoais'),
+        title: const Text('Nô Dinheru'),
         actions: [
           IconButton(
             key: const Key('dashboard-reports'),

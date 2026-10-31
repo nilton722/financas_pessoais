@@ -13,10 +13,17 @@ fazer para recuperar dados. Nada é enviado para servidores.
 | Exportações CSV | `<pasta visível>/exports` |
 
 No Android, a pasta visível é a pasta externa específica da aplicação
-(`/storage/emulated/0/Android/data/ao.gb.financas_pessoais/files`). Não exige
-permissões de armazenamento e pode ser copiada por USB ou por um gestor de
-ficheiros. No desktop, a raiz é a pasta de documentos. Os caminhos exatos
-aparecem em **Definições → Onde estão os dados**, com botão para copiar.
+(`/storage/emulated/0/Android/data/ao.gb.financas_pessoais/files`). Esta pasta
+pertence à aplicação: não exige permissões de armazenamento e a app nunca pede
+acesso global a ficheiros. No desktop, a raiz é a pasta de documentos. Os
+caminhos exatos aparecem em **Definições → Onde estão os dados**, com botão para
+copiar.
+
+A partir do Android 11, `Android/data` fica oculta nos gestores de ficheiros e
+na transferência USB (MTP). Para retirar ficheiros do telefone, use `adb pull`
+com depuração USB ativa. Para trazer um backup de outro dispositivo não é
+preciso escrever na pasta da aplicação: use **Importar de um ficheiro** (ver
+abaixo), que autoriza apenas o ficheiro escolhido.
 
 A base SQLite fica na área privada da aplicação e não é acessível sem root; os
 backups e exportações são cópias legíveis na pasta visível.
@@ -82,6 +89,20 @@ Ao confirmar:
 Depois do restauro, os ecrãs recarregam os dados. IDs, relações e montantes são
 preservados porque são restaurados a partir do documento, não reconstruídos.
 
+## Importar um backup de outro dispositivo
+
+**Definições → Backup e restauração → Importar de um ficheiro** abre o seletor
+de documentos do sistema (Downloads, cartão SD, pasta escolhida). No Android é
+usado o Storage Access Framework: o utilizador autoriza apenas o ficheiro
+escolhido e a aplicação não recebe acesso a pastas nem pede permissões de
+armazenamento.
+
+O conteúdo passa pela mesma validação do restauro local (formato, versão,
+esquema, tipos, contagens e checksum). A pré-visualização, a confirmação
+destrutiva, a cópia automática `pre-restore-…json` e a transação atómica são
+idênticas. O ficheiro importado não é copiado para a pasta `backups`: é
+restaurado diretamente e só a cópia de segurança fica registada na lista.
+
 ## Exportar um relatório
 
 **Definições → Relatórios e exportação** (ou o ícone de relatórios no painel)
@@ -100,9 +121,22 @@ ficam de fora. PDF fica para uma fase futura.
 ## Copiar para fora do dispositivo
 
 O backup e a exportação só protegem os dados se existir uma cópia fora do
-telefone. Depois de criar o ficheiro, copie-o por USB, cartão de memória ou pelo
-serviço de armazenamento que preferir. A aplicação não faz upload nem
+telefone. Depois de criar o ficheiro, copie-o para um computador, cartão de
+memória ou serviço de armazenamento que preferir. A aplicação não faz upload nem
 sincronização.
+
+No Android 11 ou mais recente, a pasta `Android/data` está oculta nos gestores
+de ficheiros e na transferência USB; nesses dispositivos, a forma de retirar os
+ficheiros é `adb pull` (com depuração USB ativa):
+
+```bash
+adb pull /sdcard/Android/data/ao.gb.financas_pessoais/files/backups ./backups
+adb pull /sdcard/Android/data/ao.gb.financas_pessoais/files/exports ./exports
+```
+
+Em versões anteriores, o gestor de ficheiros e a transferência USB funcionam
+normalmente. Para repor um ficheiro não precisa de escrever na pasta da
+aplicação: escolha-o em **Importar de um ficheiro**.
 
 No Android, desinstalar a aplicação ou limpar os dados remove a base e a pasta
 da aplicação, incluindo os backups locais. Faça um backup e copie-o antes de
@@ -115,10 +149,10 @@ desinstalar ou trocar de dispositivo.
   normal e validado.
 - **Ficheiro corrompido ou de versão não suportada:** é recusado antes de
   qualquer alteração; os dados atuais ficam como estavam. Use outra cópia.
-- **Perdeu o dispositivo:** só uma cópia externa permite recuperar. Instale a
-  aplicação, abra-a uma vez (para criar a pasta de dados), copie o ficheiro
-  para a pasta `backups` e use **Definições → Backup e restauração** para o
-  restaurar.
+- **Perdeu o dispositivo ou trocou de telefone:** só uma cópia externa permite
+  recuperar. Instale a aplicação, abra-a uma vez e use **Definições → Backup e
+  restauração → Importar de um ficheiro** para escolher o JSON (por exemplo, em
+  Downloads). Não é necessário copiá-lo para a pasta da aplicação.
 - **Relatório CSV:** pode ser aberto ou reimportado numa folha de cálculo sem a
   aplicação; não substitui o backup, porque não contém planeamento nem
   configurações.
@@ -140,5 +174,6 @@ desinstalar ou trocar de dispositivo.
 `test/unit/reports/report_test.dart`, `test/unit/reports/report_csv_test.dart`,
 `test/widget/backup_flow_test.dart` e `test/widget/reports_flow_test.dart`.
 Cobrem backup → restauro com comparação de dados, ficheiro corrompido, versão de
-esquema não suportada, falha com reversão, CSV com acentos e separadores,
-estados vazios e confirmação.
+esquema não suportada, falha com reversão, importação de ficheiro externo
+(válida e inválida), CSV com acentos e separadores, estados vazios e
+confirmação.

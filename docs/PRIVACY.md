@@ -37,6 +37,12 @@ exportações são escritos na pasta externa específica da aplicação
 (`Android/data/<pacote>/files`), que não exige permissão e é removida com a
 desinstalação. A exportação é sempre iniciada pelo utilizador.
 
+A importação de backups usa o seletor de documentos do sistema (Storage Access
+Framework no Android, `UIDocumentPicker` no iOS) através do plugin oficial
+`file_selector`. O utilizador autoriza apenas o ficheiro escolhido; a aplicação
+não recebe acesso a pastas nem pede permissões de armazenamento, e o plugin não
+faz chamadas de rede.
+
 ## Proteção local e limitações
 
 - A base SQLite, os backups e as exportações **não são cifrados**. Quem tiver

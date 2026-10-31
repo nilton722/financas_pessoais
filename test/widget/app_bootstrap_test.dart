@@ -16,7 +16,7 @@ void main() {
 
     await pumpApp(tester, db);
 
-    expect(find.text('Finanças Pessoais'), findsOneWidget);
+    expect(find.text('Nô Dinheru'), findsOneWidget);
     expect(find.text('Saldo real consolidado'), findsOneWidget);
     expect(find.text('Ainda sem contas'), findsOneWidget);
     expect(find.text('Rendimentos do mês'), findsOneWidget);

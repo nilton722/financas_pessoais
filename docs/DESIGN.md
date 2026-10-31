@@ -9,10 +9,11 @@ Decisão registada em [ADR-032](DECISIONS.md#adr-032--design-system-com-tokens-e
 
 ## Princípios
 
-1. **Identidade teal, fundo areia.** O teal mantém-se como cor de marca; o fundo
-   claro é areia quente (`#F7F3EB`) e os cartões são um branco quente
-   (`#FFFDF8`), com contorno subtil em vez de sombra. O modo escuro usa
-   superfícies verde-carregadas coerentes com o mesmo matiz.
+1. **Identidade esmeralda, dourado e fundo verde-claro.** A marca Nô Dinheru usa
+   o verde `#087F5B`, o verde escuro `#104B3C`, o dourado `#E8C66A` e o coral
+   `#E47768`; o fundo claro é `#F5F8F5`, os cartões são brancos e o texto é
+   `#182923`. O modo escuro usa superfícies verde-carregadas coerentes com o
+   mesmo matiz.
 2. **Legibilidade antes de decoração.** Cartões sem elevação, contornos de 1 px,
    espaçamento consistente e hierarquia tipográfica clara. A cor nunca é o
    único indicador de um estado: é sempre acompanhada de texto, ícone, sinal ou
@@ -58,15 +59,56 @@ ficar sob o FAB/barras).
 
 Atalhos: `card` (lg), `control` (md), `small` (sm), `badge` (pill).
 
+## Marca
+
+- Nome apresentado: **Nô Dinheru**. Slogan: **O teu dinheiro, sob controlo.**
+- Paleta oficial: verde `#087F5B`, verde escuro `#104B3C`, dourado `#E8C66A`,
+  fundo claro `#F5F8F5`, texto `#182923`, coral `#E47768`.
+- Recursos em `assets/branding/`:
+  - `no_dinheru_icon.png` — ícone oficial 1024×1024: quadrado esmeralda
+    arredondado, “N” branco estilizado, aro/mancha dourada e pilha de moedas
+    douradas. É a arte aprovada da marca e não deve ser redesenhada.
+  - `no_dinheru_icon_foreground.png` — camada de foreground para ícone
+    adaptativo, com a arte dentro da zona segura.
+  - `no_dinheru_logo.png` / `no_dinheru_logo_dark.png` — logótipo vertical
+    (ícone + nome + slogan), para fundos claros e escuros.
+- O logótipo completo e o splash partilham a mesma composição: fundo
+  `#087F5B`, ícone dentro de um quadrado branco arredondado, nome branco,
+  slogan e “Finanças pessoais • Guiné-Bissau”. A secção **Sobre** das
+  definições mostra o logótipo vertical; o launcher usa o ícone isolado.
+- No Android 12+ o splash do sistema mostra apenas o ícone, por limitação da
+  plataforma; a composição completa aparece imediatamente a seguir, no splash
+  Flutter. Em versões anteriores o lockup completo é desenhado nativamente.
+  Não se recorta, estica nem altera a paleta do emblema.
+- Os ícones Android (legacy e adaptativo) e iOS são ficheiros estáticos gerados
+  a partir do ícone oficial, sem `flutter_launcher_icons`.
+
+### Splash
+
+- `lib/app/splash/splash_page.dart` desenha a composição e as animações
+  discretas: fundo imediato, ícone com fade-in e escala (0→0,55), nome
+  (0,28→0,70), slogan (0,48→0,86) e identificação (0,62→1). Com animações
+  desativadas no sistema, a composição aparece estática.
+- `lib/app/splash/splash_gate.dart` mantém o splash por cima da aplicação até
+  `appStartupProvider` concluir — abrir a base SQLite com as migrações e
+  carregar as definições — e até a animação de entrada terminar; depois
+  desvanece-o em 320 ms. Não existe temporizador fixo a atrasar a abertura.
+- O splash usa cores fixas da marca (`BrandColors`), não o esquema claro/escuro,
+  para manter a mesma abertura em qualquer configuração do sistema.
+- O tamanho do ícone, os textos e os espaçamentos derivam do lado mais curto do
+  ecrã, com limites para telemóveis pequenos e grandes; o conteúdo pode rolar em
+  orientações muito baixas.
+
 ## Cor
 
 ### Marca e superfícies
 
-- Semente Material 3: `#00695C` (teal).
-- Claro: fundo `#F7F3EB`, cartão `#FFFDF8`, texto `#1A1C1A`, contorno
-  `#D3CDC1`.
-- Escuro: fundo `#0C1210`, cartão `#111815`, texto `#E2E5E1`, contorno
-  `#3A4742`.
+- Semente Material 3: `#087F5B` (verde principal).
+- Claro: fundo `#F5F8F5`, cartão `#FFFFFF`, texto `#182923`, contorno
+  `#D3DDD6`; dourado em `secondary` e coral escurecido em `error` para
+  contraste de texto.
+- Escuro: fundo `#0B1512`, cartão `#0F1A16`, texto `#E3EAE6`, contorno
+  `#34463C`; verde-menta `#6FDDB8` como primário.
 - O tema define `cardTheme`, `appBarTheme`, `listTileTheme`,
   `inputDecorationTheme`, botões com altura mínima de 48, `navigationBarTheme`,
   chips, `segmentedButtonTheme`, snackbar, diálogo, menu, progresso e tooltip.
@@ -80,15 +122,18 @@ modos:
 
 | Papel | Claro | Escuro |
 |---|---|---|
-| Rendimento (`income`) | `#1B6E45` | `#7DD8A6` |
-| Transferência (`transfer`) | `#175E8C` | `#8CCBF5` |
+| Rendimento (`income`) | `#0F6B4F` | `#7CDDB5` |
+| Transferência (`transfer`) | `#225F6D` | `#8CCBE0` |
 | Aviso (`warning`) | `#8A5A00` | `#F2C66D` |
-| Saldo positivo (`positive`) | `#0F5C4A` | `#80D8C4` |
+| Saldo positivo (`positive`) | `#0B5C46` | `#80D8C4` |
 
 Cada papel tem também um contentor e uma cor `on*` para badges e superfícies.
 Despesa usa `colorScheme.error`, porque erro e despesa partilham a mesma
-urgência visual. O saldo positivo é distinto do verde de rendimento: um saldo
-não é um rendimento.
+urgência visual. O erro claro é um coral escurecido (`#B3372B`) para manter
+contraste de texto; o coral oficial `#E47768` fica reservado a superfícies,
+ícones e estados em modo escuro. A transferência usa um azul-petróleo de apoio,
+distinto do verde de rendimento. O saldo positivo é distinto do verde de
+rendimento: um saldo não é um rendimento.
 
 ## Tipografia
 
@@ -149,6 +194,24 @@ listas vazias e explica o próximo passo em vez de mostrar apenas “sem dados�
 Seleção controlada com etiqueta flutuante e mensagem de erro. Quando não há
 valor, mostra a indicação `Selecionar` (personalizável por `hint`) em vez de um
 campo vazio, para que a ação pendente fique sempre explícita.
+
+### `AppNavigationBar`
+
+Barra de navegação inferior com os cinco destinos fixos (`Painel`,
+`Movimentos`, `Contas`, `Categorias`, `Plano`). Segue o `navigationBarTheme`
+(altura, fundo, indicador, ícones e etiquetas) e substitui o `NavigationBar`
+do Material 3 por um problema concreto: o componente do SDK deixa a etiqueta
+quebrar em duas linhas quando o destino é estreito, desalinhando a barra em
+ecrãs pequenos ou com texto ampliado.
+
+- Cada etiqueta ocupa **uma única linha** e usa `FittedBox(scaleDown)`: só
+  encolhe quando não cabe na largura do destino, mantendo o texto completo e
+  legível em vez de o cortar ou quebrar.
+- A largura do indicador acompanha a largura do destino (máx. 64), para não
+  transbordar em ecrãs de 320 dp.
+- Cada destino anuncia `Semantics(button, selected, label, onTap)`; o toque
+  cobre toda a área do destino.
+- Validado em 320 dp com texto a 130% e no tamanho normal do emulador.
 
 ## Política de apresentação de dados
 
@@ -229,8 +292,17 @@ finitos apresentam `0%`. A percentagem é acompanhada pelo estado textual
 ```text
 lib/app/theme/
   app_tokens.dart       espaçamento e raios
+  brand_colors.dart     cores fixas da marca (splash)
   finance_colors.dart   cores semânticas (ThemeExtension)
   app_theme.dart        tema Material 3 claro/escuro
+lib/app/
+  app_startup.dart      inicialização real (SQLite + definições)
+  splash/
+    splash_gate.dart    espera pela inicialização e desvanece o splash
+    splash_page.dart    composição e animações do splash
+  shell/
+    app_shell.dart          shell com os cinco destinos
+    app_navigation_bar.dart barra inferior adaptativa
 lib/core/formatters/
   money_formatter.dart  exato, assinado e compacto
   percent_formatter.dart
@@ -241,6 +313,13 @@ lib/core/widgets/
   app_data_row.dart
   status_badge.dart
   empty_state.dart
+assets/branding/
+  no_dinheru_icon.png             ícone oficial 1024
+  no_dinheru_icon_foreground.png  foreground adaptativo
+  no_dinheru_logo.png             logótipo para fundo claro
+  no_dinheru_logo_dark.png        logótipo para fundo escuro
+android/app/src/main/res/          ícones legacy, adaptativo e splash nativo
+ios/Runner/Assets.xcassets/        AppIcon.appiconset e LaunchImage
 ```
 
 ## Manutenção
@@ -251,5 +330,11 @@ lib/core/widgets/
   unitário.
 - Um novo componente partilhado deve ser usado pelo menos em dois ecrãs antes de
   ser promovido a `lib/core/widgets`.
+- O ícone oficial só muda por decisão de marca. Nesse caso, regenerar o
+  foreground adaptativo, os mipmaps legacy, o `AppIcon.appiconset`, o lockup do
+  splash (`launch_logo` e `LaunchImage`) e os logótipos de Sobre a partir da
+  mesma arte, sem depender de `flutter_launcher_icons`.
+- O splash não deve introduzir atrasos arbitrários: novas tarefas de arranque
+  entram em `appStartupProvider`, e o splash sai quando esse future termina.
 - Testes relevantes: `test/unit/formatters`, `test/widget` (painel, movimentos,
-  planeamento, relatórios, definições) e `test/integration`.
+  planeamento, relatórios, definições, splash) e `test/integration`.

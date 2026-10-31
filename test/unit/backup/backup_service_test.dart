@@ -4,6 +4,7 @@ import 'package:financas_pessoais/core/backup/backup_format.dart';
 import 'package:financas_pessoais/core/backup/backup_service.dart';
 import 'package:financas_pessoais/core/backup/backup_storage.dart';
 import 'package:financas_pessoais/core/database/app_database.dart';
+import 'package:financas_pessoais/core/errors/app_failure.dart';
 import 'package:financas_pessoais/core/files/app_files.dart';
 import 'package:financas_pessoais/core/formatters/date_formatter.dart';
 import 'package:financas_pessoais/features/accounts/data/account_repository.dart';
@@ -239,6 +240,50 @@ void main() {
       snapshot.tables['transactions']!.first['description'],
       contains(';'),
     );
+  });
+
+  test('importa um ficheiro externo com cópia de segurança prévia', () async {
+    await seedData();
+    final created = await service.createBackup(
+      now: DateTime.utc(2026, 10, 30, 12, 0),
+    );
+    final contents = await storage.read(created.file);
+
+    final targetDb = openMemoryDatabase();
+    addTearDown(targetDb.close);
+    final outcome = await BackupService(
+      targetDb,
+      storage,
+    ).restoreExternal(contents);
+
+    expect(outcome.snapshot.counts, created.snapshot!.counts);
+    expect(File(outcome.safetyBackup.path).existsSync(), isTrue);
+    expect(outcome.safetyBackup.fileName, startsWith('pre-restore-'));
+
+    final items = await PlanningRepository(targetDb).readItems();
+    expect(items.single.description, 'Renda');
+    expect(items.single.paidTotal, 1000);
+    final settings = await AppSettingsRepository(targetDb).load();
+    expect(settings.currencyCode, 'XOF');
+  });
+
+  test('ficheiro externo inválido não altera os dados atuais', () async {
+    await seedData();
+    final before = await _countRows(db, 'transactions');
+    final balanceBefore = (await AccountRepository(
+      db,
+    ).readBalances(until: FinancialDate.today())).single.balance;
+
+    await expectLater(
+      service.restoreExternal('{"format": "outra_coisa"}'),
+      throwsA(isA<AppFailure>()),
+    );
+
+    expect(await _countRows(db, 'transactions'), before);
+    final balanceAfter = (await AccountRepository(
+      db,
+    ).readBalances(until: FinancialDate.today())).single.balance;
+    expect(balanceAfter, balanceBefore);
   });
 }
 

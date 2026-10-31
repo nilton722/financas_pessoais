@@ -4,7 +4,8 @@ import 'app_tokens.dart';
 import 'finance_colors.dart';
 
 abstract final class AppTheme {
-  static const Color _seedColor = Color(0xFF00695C);
+  /// Verde principal da identidade Nô Dinheru.
+  static const Color _seedColor = Color(0xFF087F5B);
 
   static ThemeData get light => _build(Brightness.light);
 
@@ -255,29 +256,61 @@ abstract final class AppTheme {
     );
     if (brightness == Brightness.light) {
       return base.copyWith(
-        surface: const Color(0xFFF7F3EB),
-        onSurface: const Color(0xFF1A1C1A),
-        surfaceContainerLowest: const Color(0xFFFFFDF8),
-        surfaceContainerLow: const Color(0xFFF1ECE2),
-        surfaceContainer: const Color(0xFFECE6DB),
-        surfaceContainerHigh: const Color(0xFFE6DFD3),
-        surfaceContainerHighest: const Color(0xFFDFD8CC),
-        onSurfaceVariant: const Color(0xFF4C5450),
-        outline: const Color(0xFF747C77),
-        outlineVariant: const Color(0xFFD3CDC1),
+        primary: const Color(0xFF087F5B),
+        onPrimary: const Color(0xFFFFFFFF),
+        primaryContainer: const Color(0xFFB0EEDB),
+        onPrimaryContainer: const Color(0xFF002019),
+        secondary: const Color(0xFFE8C66A),
+        onSecondary: const Color(0xFF3B2E00),
+        secondaryContainer: const Color(0xFFF6E8BF),
+        onSecondaryContainer: const Color(0xFF3B2E00),
+        tertiary: const Color(0xFF104B3C),
+        onTertiary: const Color(0xFFFFFFFF),
+        tertiaryContainer: const Color(0xFFC6E9DB),
+        onTertiaryContainer: const Color(0xFF002019),
+        error: const Color(0xFFB3372B),
+        onError: const Color(0xFFFFFFFF),
+        errorContainer: const Color(0xFFF7D5CF),
+        onErrorContainer: const Color(0xFF5B150D),
+        surface: const Color(0xFFF5F8F5),
+        onSurface: const Color(0xFF182923),
+        surfaceContainerLowest: const Color(0xFFFFFFFF),
+        surfaceContainerLow: const Color(0xFFEFF4F0),
+        surfaceContainer: const Color(0xFFE9EFEA),
+        surfaceContainerHigh: const Color(0xFFE3EAE5),
+        surfaceContainerHighest: const Color(0xFFDCE4DE),
+        onSurfaceVariant: const Color(0xFF52635C),
+        outline: const Color(0xFF7C8B84),
+        outlineVariant: const Color(0xFFD3DDD6),
       );
     }
     return base.copyWith(
-      surface: const Color(0xFF0C1210),
-      onSurface: const Color(0xFFE2E5E1),
-      surfaceContainerLowest: const Color(0xFF111815),
-      surfaceContainerLow: const Color(0xFF161F1B),
-      surfaceContainer: const Color(0xFF1A2420),
-      surfaceContainerHigh: const Color(0xFF212C27),
-      surfaceContainerHighest: const Color(0xFF2A3631),
-      onSurfaceVariant: const Color(0xFFB9C4BE),
-      outline: const Color(0xFF86928C),
-      outlineVariant: const Color(0xFF3A4742),
+      primary: const Color(0xFF6FDDB8),
+      onPrimary: const Color(0xFF003829),
+      primaryContainer: const Color(0xFF00513B),
+      onPrimaryContainer: const Color(0xFFA9F2D8),
+      secondary: const Color(0xFFE8C66A),
+      onSecondary: const Color(0xFF3B2E00),
+      secondaryContainer: const Color(0xFF554400),
+      onSecondaryContainer: const Color(0xFFF6E8BF),
+      tertiary: const Color(0xFF8FD4BE),
+      onTertiary: const Color(0xFF00382A),
+      tertiaryContainer: const Color(0xFF0B4E3C),
+      onTertiaryContainer: const Color(0xFFC6E9DB),
+      error: const Color(0xFFFFB4A9),
+      onError: const Color(0xFF690005),
+      errorContainer: const Color(0xFF7A2A20),
+      onErrorContainer: const Color(0xFFFFDAD4),
+      surface: const Color(0xFF0B1512),
+      onSurface: const Color(0xFFE3EAE6),
+      surfaceContainerLowest: const Color(0xFF0F1A16),
+      surfaceContainerLow: const Color(0xFF131F1A),
+      surfaceContainer: const Color(0xFF18241F),
+      surfaceContainerHigh: const Color(0xFF1E2B25),
+      surfaceContainerHighest: const Color(0xFF26342D),
+      onSurfaceVariant: const Color(0xFFB7C6BE),
+      outline: const Color(0xFF85968D),
+      outlineVariant: const Color(0xFF34463C),
     );
   }
 
