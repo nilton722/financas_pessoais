@@ -51,9 +51,10 @@ semeadas uma única vez. Montantes são sempre inteiros de FCFA/XOF.
 ## Uso diário
 
 - **Movimentos** — rendimento, despesa ou transferência, com conta, categoria,
-  data, montante, descrição e notas. O ícone de filtros no topo abre os campos
-  de período, conta, tipo e categoria; edite ou elimine (eliminação lógica, com
-  confirmação).
+  data, montante, descrição e notas. O ícone de filtros abre período, conta,
+  tipo e categoria; o de pesquisa procura em descrição, notas, categoria e
+  contas. Editar pelo toque; **Mover para a lixeira** remove dos saldos e
+  relatórios. A lixeira permite restaurar ou eliminar definitivamente.
 - **Transferências** — escolha conta de origem e destino. Movem dinheiro entre
   contas próprias: não são rendimento nem despesa e não alteram o saldo
   consolidado. Só são permitidas entre contas com a mesma moeda.
@@ -64,7 +65,9 @@ semeadas uma única vez. Montantes são sempre inteiros de FCFA/XOF.
   - *Orçamentos*: limite mensal por categoria de despesa, comparado com gastos
     reais (transferências excluídas).
   - *Recorrências*: regras semanais, mensais ou anuais; geram ocorrências
-    planeadas uma única vez e podem ser pausadas.
+    planeadas uma única vez, podem ser pausadas e ter tipo, frequência,
+    início ou fim editados. A reconstrução aplica-se só às ocorrências
+    futuras sem pagamentos; as passadas e pagas mantêm-se.
   - *Metas de poupança*: alvo e progresso lido do saldo real da conta
     associada; uma meta não é uma despesa.
   - *Dívidas*: a pagar ou a receber; o pendente deriva dos pagamentos reais.
@@ -73,38 +76,46 @@ semeadas uma única vez. Montantes são sempre inteiros de FCFA/XOF.
   qualidade dos dados e limitações. É uma estimativa, não uma garantia.
 - **Relatórios** — por período, categoria ou conta, com rendimentos, despesas,
   resultado e transferências à parte. A exportação CSV é sempre iniciada pelo
-  utilizador.
-- **Definições** — privacidade, bloqueio ao abrir, caminhos de
-  dados/backups/exportações, versão e acesso aos backups.
+  utilizador; **Guardar CSV em…** abre o seletor do sistema para levar o
+  ficheiro para Downloads, Drive ou outro destino.
+- **Definições** — privacidade, bloqueio ao abrir, lembretes locais, caminhos
+  de dados/backups/exportações, versão e acesso aos backups.
 
 ## Backup e restauração
 
 - **Criar backup**: Definições → Backup e restauração → *Criar backup agora*.
-  É gerado um JSON
-  versionado com as 12 tabelas de dados, configurações, contagens e checksum.
-- **Guardar backup em…**: cria um backup novo e abre o seletor de gravação do
-  sistema para escolher Downloads, Google Drive, OneDrive, cartão SD ou outro
-  destino. A app escreve apenas no ficheiro escolhido e não acede à rede; a
-  transferência para a nuvem, quando escolhida, é feita pelo serviço do
-  fornecedor. A cópia local também fica em `backups`.
+  Escolha **Cifrado** (recomendado) ou **Sem cifra**. No modo cifrado, defina
+  uma frase-passe com pelo menos 8 caracteres e repita-a; não é guardada. Se a
+  esquecer, o ficheiro não pode ser recuperado. É gerado um JSON versionado com
+  as 12 tabelas de dados, configurações, contagens e checksum (este último
+  dentro do envelope, quando cifrado).
+- **Guardar backup em…**: cria um backup novo, com a mesma escolha de cifra, e
+  abre o seletor de gravação do sistema para escolher Downloads, Google Drive,
+  OneDrive, cartão SD ou outro destino. A app escreve apenas no ficheiro
+  escolhido e não acede à rede; a transferência para a nuvem, quando escolhida,
+  é feita pelo serviço do fornecedor. A cópia local também fica em `backups`.
 - **Restaurar**: toque no ficheiro, confirme a pré-visualização e a advertência.
-  Antes de substituir, a app cria um backup de segurança `pre-restore-…json` da
-  base atual. O restauro corre numa única transação; se algo falhar, a base
-  atual fica intacta.
+  Se o backup estiver cifrado, a app pede a frase-passe e valida-a antes de
+  mostrar os detalhes; uma frase errada mostra um aviso e permite tentar outra
+  vez. Antes de substituir, a app cria um backup de segurança
+  `pre-restore-…json` da base atual. O restauro corre numa única transação; se
+  algo falhar, a base atual fica intacta.
 - **Importar de um ficheiro**: use esta opção para recuperar um backup guardado
   fora da aplicação (por exemplo, no Google Drive, em Downloads ou recebido de
   outro telefone). O seletor de documentos do sistema dá acesso apenas ao
-  ficheiro escolhido; não são pedidas permissões de armazenamento. A validação,
-  a confirmação e a cópia `pre-restore-…json` são as mesmas do restauro local.
+  ficheiro escolhido; não são pedidas permissões de armazenamento. Se estiver
+  cifrado, é pedida a frase-passe. A validação, a confirmação e a cópia
+  `pre-restore-…json` são as mesmas do restauro local.
 - **Onde ficam os ficheiros**: no Android, em
   `Android/data/ao.gb.financas_pessoais/files/backups` (e `exports` para CSV).
   No desktop, na pasta de documentos da aplicação. Os caminhos exatos aparecem
   em Definições. A partir do Android 11, a pasta `Android/data` fica oculta nos
   gestores de ficheiros e na transferência USB; para retirar cópias use
   *Guardar backup em…* ou `adb pull` com depuração USB ativa.
-- Copie periodicamente o backup para fora do telefone. O ficheiro de backup
-  não é cifrado nem assinado: o checksum deteta corrupção acidental, não
-  adulteração. Proteja o acesso ao telefone e às cópias.
+- Copie periodicamente o backup para fora do telefone. Um backup cifrado não é
+  legível sem a frase-passe; um backup simples é legível e o checksum só deteta
+  corrupção acidental, não adulteração. Guarde a frase-passe num sítio seguro e
+  proteja o acesso ao telefone e às cópias.
 
 Detalhe do formato, validação e recuperação: [BACKUP.md](BACKUP.md).
 
@@ -118,12 +129,39 @@ biometria configurados no sistema.
   mantém o ecrã de bloqueio, onde pode tentar novamente.
 - Depois de 60 segundos em segundo plano, o pedido volta a aparecer. Regressos
   rápidos, como escolher um ficheiro para importar, mantêm a sessão aberta.
-- O bloqueio é uma barreira de interface: os dados, backups e exportações
-  continuam sem cifra. Não é um PIN próprio da aplicação.
+- O bloqueio é uma barreira de interface: a base e as exportações continuam
+  sem cifra. Os backups só ficam cifrados se escolher essa opção ao criá-los.
+  Não é um PIN próprio da aplicação.
 - Se remover o PIN do telefone, a aplicação explica a situação e abre com
   aviso; o interruptor fica desativado até haver credenciais.
 - Restaurar um backup criado com a opção ligada ativa o pedido neste telefone,
   usando as credenciais locais.
+
+## Lembretes
+
+Em **Definições → Lembretes**, ative **Lembretes no telemóvel** e escolha a
+hora (09:00 por omissão). É pedida a permissão de notificações do sistema;
+recusá-la mantém os lembretes desligados.
+
+- Na véspera e no dia do vencimento de cada compromisso em aberto, a aplicação
+  mostra um aviso com a descrição, o valor ainda em falta e a conta. O aviso de
+  rendimento usa “Receber”; o de despesa usa “Pagar”.
+- Compromissos pagos, cancelados ou já vencidos não geram avisos. O horizonte
+  é de 365 dias.
+- No último dia do mês existe um único aviso quando pelo menos um orçamento do
+  mês foi excedido; tocar nele abre os orçamentos.
+- Tudo é agendado no próprio telemóvel, sem internet. Ao desligar os lembretes,
+  os avisos ainda pendentes são cancelados; os já mostrados podem ser
+  dispensados na gaveta de notificações.
+- As notificações são recalculadas quando a aplicação abre e quando os
+  compromissos ou orçamentos mudam. Os identificadores são estáveis: alterar a
+  hora substitui os mesmos avisos em vez de os duplicar.
+- Depois de reiniciar o telemóvel, o Android volta a agendar os avisos. Se
+  desativar as notificações da aplicação nas definições do sistema, as
+  definições da app mostram um aviso e nada é agendado até a permissão voltar.
+- A entrega é gerida pelo sistema e pode atrasar alguns minutos com o telefone
+  em poupança de energia. O conteúdo pode aparecer no ecrã de bloqueio; ajuste
+  as pré-visualizações do sistema se preferir esconder valores.
 
 ## Privacidade
 
@@ -133,9 +171,13 @@ biometria configurados no sistema.
   apenas nos manifestos de debug/profile para ferramentas de desenvolvimento.
 - Não há analytics, publicidade, telemetria nem envio de dados financeiros.
 - O bloqueio opcional usa as credenciais do sistema; a app não recebe nem
-  guarda PIN ou biometria, e os dados continuam sem cifra em repouso. Quem
-  desbloquear o telefone e a aplicação consegue ler a base. Proteja o
-  dispositivo e guarde as cópias em local seguro.
+  guarda PIN ou biometria. A base continua sem cifra em repouso; os backups só
+  ficam cifrados se escolher essa opção ao criá-los. Quem desbloquear o
+  telefone e a aplicação consegue ler a base. Proteja o dispositivo e guarde as
+  cópias e a frase-passe em local seguro.
+- Os lembretes são notificações locais: a app não tem rede nem servidor. O
+  sistema pode mostrar descrição, montante e conta no ecrã de bloqueio, conforme
+  as pré-visualizações configuradas no telemóvel.
 - Logs não incluem dados financeiros pessoais.
 
 Detalhe: [PRIVACY.md](PRIVACY.md).
@@ -152,15 +194,21 @@ Detalhe: [PRIVACY.md](PRIVACY.md).
   realizados; o caixa só muda quando o compromisso é pago.
 - O restauro substitui toda a base. Não há fusão de backups.
 - Não há partilha integrada (share sheet). Os backups saem pelo seletor de
-  gravação (*Guardar backup em…*); em Android 11 ou mais recente, os ficheiros
-  já escritos na pasta da aplicação só saem por `adb pull`. As exportações CSV
-  continuam na pasta `exports`. A importação por seletor de ficheiros está
-  disponível.
+  gravação (*Guardar backup em…*) e os relatórios por *Guardar CSV em…*; em
+  Android 11 ou mais recente, os ficheiros já escritos na pasta da aplicação
+  só saem por `adb pull`. As exportações continuam também na pasta `exports`.
+  A importação por seletor de ficheiros está disponível.
+- O backup automático do Android está desativado: a base não é copiada para a
+  conta Google. A recuperação depende dos backups criados pelo utilizador.
 - Não é possível abrir uma base criada por uma versão mais recente do esquema.
 - O bloqueio ao abrir depende do bloqueio do telefone e é apenas uma barreira
   de interface: não cifra a base nem os backups, e não protege contra root ou
   acesso direto aos ficheiros. Sem credenciais no sistema, a aplicação abre com
   aviso.
+- Os lembretes dependem da permissão de notificações e das políticas de
+  bateria do sistema. Usam alarmes inexatos, pelo que a entrega pode atrasar,
+  sobretudo em poupança de energia ou com a aplicação forçada a parar; nesse
+  caso voltam a ser agendados quando a aplicação abre ou o telefone reinicia.
 
 ## Atualização
 

@@ -281,4 +281,114 @@ void main() {
     expect(await debts.readPayments(debtId), isEmpty);
     expect(await balanceOf(wallet), 10000);
   });
+
+  test('restaurar um pagamento volta a ligá-lo ao compromisso', () async {
+    final wallet = await createTestAccount(db, openingBalance: 10000);
+    final itemId = await planning.createItem(
+      PlannedItemDraft(
+        kind: PlannedItemKind.expense,
+        amount: 3000,
+        dueDate: FinancialDate.today(),
+        description: 'Renda',
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+      ),
+    );
+    final transactionId = await planning.payItem(
+      itemId,
+      PaymentDraft(
+        amount: 3000,
+        date: FinancialDate.today(),
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+      ),
+    );
+
+    await transactions.softDelete(transactionId);
+    expect(
+      (await planning.findItem(itemId))!.effectiveStatus,
+      PlannedItemStatus.planned,
+    );
+
+    await transactions.restore(transactionId);
+
+    final item = await planning.findItem(itemId);
+    expect(item!.paidTotal, 3000);
+    expect(item.effectiveStatus, PlannedItemStatus.paid);
+    expect(item.transactionId, transactionId);
+    expect(await planning.readPayments(itemId), hasLength(1));
+    expect(await balanceOf(wallet), 7000);
+  });
+
+  test('não restaura pagamento que excederia o compromisso', () async {
+    final wallet = await createTestAccount(db, openingBalance: 10000);
+    final itemId = await planning.createItem(
+      PlannedItemDraft(
+        kind: PlannedItemKind.expense,
+        amount: 3000,
+        dueDate: FinancialDate.today(),
+        description: 'Renda',
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+      ),
+    );
+    final first = await planning.payItem(
+      itemId,
+      PaymentDraft(
+        amount: 3000,
+        date: FinancialDate.today(),
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+      ),
+    );
+    await transactions.softDelete(first);
+    await planning.payItem(
+      itemId,
+      PaymentDraft(
+        amount: 3000,
+        date: FinancialDate.today(),
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+      ),
+    );
+
+    await expectLater(transactions.restore(first), throwsA(isA<AppFailure>()));
+    expect(
+      (await planning.findItem(itemId))!.effectiveStatus,
+      PlannedItemStatus.paid,
+    );
+    expect(await balanceOf(wallet), 7000);
+  });
+
+  test('restaurar um pagamento de dívida repõe o estado', () async {
+    final wallet = await createTestAccount(db, openingBalance: 10000);
+    final debtId = await debts.create(
+      const DebtDraft(
+        kind: DebtKind.payable,
+        description: 'Empréstimo',
+        originalAmount: 5000,
+      ),
+    );
+    final transactionId = await debts.pay(
+      debtId,
+      DebtPaymentDraft(
+        amount: 2000,
+        date: FinancialDate.today(),
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+      ),
+    );
+
+    await transactions.softDelete(transactionId);
+    expect((await debts.findById(debtId))!.paidTotal, 0);
+
+    await transactions.restore(transactionId);
+
+    final debt = await debts.findById(debtId);
+    expect(debt!.paidTotal, 2000);
+    expect(debt.remaining, 3000);
+    expect(debt.effectiveStatus, DebtStatus.open);
+    expect(await debts.readPayments(debtId), hasLength(1));
+    expect(await balanceOf(wallet), 8000);
+  });
 }

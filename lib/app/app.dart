@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'router.dart';
 import 'lock/app_lock_gate.dart';
+import 'reminder_sync_host.dart';
 import 'splash/splash_gate.dart';
 import 'theme/app_theme.dart';
 
@@ -38,8 +39,10 @@ class _FinancasAppState extends State<FinancasApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       routerConfig: _router,
-      builder: (context, child) => SplashGate(
-        child: AppLockGate(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => ReminderSyncHost(
+        child: SplashGate(
+          child: AppLockGate(child: child ?? const SizedBox.shrink()),
+        ),
       ),
     );
   }

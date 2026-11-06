@@ -143,6 +143,10 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-backups')));
     await pumpDisk(tester, find.text('Ainda sem backups'));
     await tester.tap(find.byKey(const Key('backup-create')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('backup-option-plain')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('backup-create-confirm')));
     await pumpDisk(tester, find.textContaining('Backup criado'));
     await _dismissSnackBar(tester);
     await pumpDisk(tester, find.byKey(const Key('backup-list')));

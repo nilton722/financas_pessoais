@@ -346,4 +346,48 @@ void main() {
     expect(rules.single.frequency, RecurrenceFrequency.monthly);
     expect(rules.single.description, 'Renda mensal');
   });
+
+  testWidgets('edita a frequência de uma recorrência já materializada', (
+    tester,
+  ) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    await pumpApp(tester, db);
+
+    await tapNavigation(tester, 'Plano');
+    await tapVisible(tester, find.text('Recorrências'));
+    await tapVisible(
+      tester,
+      find.widgetWithText(FloatingActionButton, 'Nova recorrência'),
+    );
+    await tester.enterText(find.byType(TextField).at(0), '2000');
+    await tester.enterText(find.byType(TextField).at(1), 'Renda mensal');
+    await settle(tester);
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Guardar'));
+    expect(find.text('Recorrência criada.'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tapVisible(tester, find.text('Renda mensal'));
+    expect(find.widgetWithText(AppBar, 'Editar recorrência'), findsOneWidget);
+    expect(
+      find.textContaining('reconstrói as ocorrências futuras'),
+      findsOneWidget,
+    );
+
+    await tapVisible(
+      tester,
+      find.byType(DropdownButton<RecurrenceFrequency>).first,
+    );
+    await tapVisible(tester, find.text('Semanal').last);
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Guardar'));
+
+    expect(find.text('Reconstruir ocorrências futuras?'), findsOneWidget);
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Reconstruir'));
+
+    expect(find.text('Recorrência atualizada.'), findsOneWidget);
+    final rules = await PlanningRepository(db).readRules();
+    expect(rules.single.frequency, RecurrenceFrequency.weekly);
+
+    await disposeApp(tester);
+  });
 }

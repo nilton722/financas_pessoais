@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_tokens.dart';
+import '../../../core/backup/backup_crypto.dart';
 import '../../../core/backup/backup_format.dart';
 import '../../../core/backup/backup_service.dart';
 import '../../../core/backup/backup_storage.dart';
@@ -17,6 +18,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../accounts/presentation/accounts_providers.dart';
 import '../../forecast/presentation/forecast_providers.dart';
 import '../../planning/presentation/planning_providers.dart';
+import '../../planning/presentation/reminder_providers.dart';
 import '../../reports/presentation/reports_providers.dart';
 import '../../transactions/presentation/transactions_providers.dart';
 import 'backup_providers.dart';
@@ -46,6 +48,11 @@ class BackupsPage extends ConsumerStatefulWidget {
 
 class _BackupsPageState extends ConsumerState<BackupsPage> {
   bool _busy = false;
+
+  /// Impede duas aberturas do mesmo backup enquanto o diálogo da frase-passe
+  /// está aberto. Não usa `_busy` para não deixar uma animação infinita por
+  /// trás do diálogo.
+  bool _opening = false;
 
   @override
   Widget build(BuildContext context) {
@@ -82,8 +89,10 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
                 children: [
                   const Text(
                     'O backup inclui contas, categorias, movimentos, '
-                    'planeamento, metas, dívidas e configurações. O '
-                    'ficheiro é JSON legível e não é cifrado.',
+                    'planeamento, metas, dívidas e configurações. Pode '
+                    'protegê-lo com uma frase-passe (AES-256-GCM) ou criar '
+                    'um ficheiro simples e legível. A base local não é '
+                    'cifrada.',
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   SelectableText(
@@ -172,7 +181,7 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
                     for (final item in value) ...[
                       _BackupTile(
                         item: item,
-                        onTap: _busy ? null : () => _open(item),
+                        onTap: _busy ? null : () => _openItem(item),
                       ),
                       if (item != value.last) const Divider(height: 1),
                     ],
@@ -205,10 +214,23 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
     );
   }
 
+  Future<_BackupCreation?> _chooseCreation() {
+    return showDialog<_BackupCreation>(
+      context: context,
+      builder: (dialogContext) => const _BackupCreationDialog(),
+    );
+  }
+
   Future<void> _create() async {
+    final creation = await _chooseCreation();
+    if (creation == null || !mounted) {
+      return;
+    }
     setState(() => _busy = true);
     try {
-      final item = await ref.read(backupServiceProvider).createBackup();
+      final item = await ref
+          .read(backupServiceProvider)
+          .createBackup(passphrase: creation.passphrase);
       ref.invalidate(backupListProvider);
       if (!mounted) {
         return;
@@ -217,7 +239,8 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
         SnackBar(
           content: Text(
             'Backup criado: ${item.file.fileName} '
-            '(${PluralFormatter.count(item.totalRows, 'registo', 'registos')}).',
+            '(${PluralFormatter.count(item.totalRows, 'registo', 'registos')})'
+            '${item.encrypted ? ', cifrado com frase-passe' : ', sem cifra'}.',
           ),
         ),
       );
@@ -234,11 +257,15 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
   }
 
   Future<void> _saveTo() async {
+    final creation = await _chooseCreation();
+    if (creation == null || !mounted) {
+      return;
+    }
     setState(() => _busy = true);
     BackupListItem? created;
     try {
       final service = ref.read(backupServiceProvider);
-      created = await service.createBackup();
+      created = await service.createBackup(passphrase: creation.passphrase);
       ref.invalidate(backupListProvider);
       final contents = await ref.read(backupStorageProvider).read(created.file);
       final saved = await ref.read(backupFileSaverProvider)(
@@ -282,11 +309,20 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
     setState(() => _busy = true);
     try {
       final picked = await ref.read(backupFilePickerProvider)();
-      if (picked == null) {
+      if (picked == null || !mounted) {
         return;
       }
-      final snapshot = BackupSnapshot.decode(picked.contents);
-      if (!mounted) {
+      final service = ref.read(backupServiceProvider);
+      final encrypted = isEncryptedBackup(picked.contents);
+      if (encrypted) {
+        // O diálogo da frase-passe tem o seu próprio indicador; a barra da
+        // página não pode ficar a animar por trás dele.
+        setState(() => _busy = false);
+      }
+      final unlocked = encrypted
+          ? await _unlockContents(picked.fileName, picked.contents)
+          : await service.unlock(picked.contents);
+      if (unlocked == null || !mounted) {
         return;
       }
       final item = BackupListItem(
@@ -296,10 +332,15 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
           sizeBytes: utf8.encode(picked.contents).length,
           modifiedAt: DateTime.now(),
         ),
-        snapshot: snapshot,
+        snapshot: unlocked.snapshot,
+        encrypted: unlocked.encrypted,
       );
       setState(() => _busy = false);
-      await _open(item, externalContents: picked.contents);
+      await _showBackup(
+        item,
+        externalContents: unlocked.contents,
+        imported: true,
+      );
     } on AppFailure catch (failure) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -312,7 +353,74 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
     }
   }
 
-  Future<void> _open(BackupListItem item, {String? externalContents}) async {
+  Future<void> _openItem(BackupListItem item) async {
+    if (_opening) {
+      return;
+    }
+    if (!item.encrypted) {
+      await _showBackup(item);
+      return;
+    }
+    _opening = true;
+    try {
+      final contents = await ref.read(backupStorageProvider).read(item.file);
+      if (!mounted) {
+        return;
+      }
+      final unlocked = await _unlockContents(item.file.fileName, contents);
+      if (unlocked == null || !mounted) {
+        return;
+      }
+      await _showBackup(
+        BackupListItem(
+          file: item.file,
+          snapshot: unlocked.snapshot,
+          encrypted: true,
+        ),
+        externalContents: unlocked.contents,
+      );
+    } on AppFailure catch (failure) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(failure.message)));
+      }
+    } finally {
+      _opening = false;
+    }
+  }
+
+  /// Pede a frase-passe e valida-a contra o conteúdo, sem guardar a frase.
+  Future<UnlockedBackup?> _unlockContents(
+    String fileName,
+    String contents,
+  ) async {
+    final service = ref.read(backupServiceProvider);
+    UnlockedBackup? unlocked;
+    final passphrase = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => _BackupPassphraseDialog(
+        fileName: fileName,
+        onVerify: (value) async {
+          try {
+            unlocked = await service.unlock(contents, passphrase: value);
+            return null;
+          } on AppFailure catch (failure) {
+            return failure.message;
+          }
+        },
+      ),
+    );
+    if (passphrase == null) {
+      return null;
+    }
+    return unlocked;
+  }
+
+  Future<void> _showBackup(
+    BackupListItem item, {
+    String? externalContents,
+    bool imported = false,
+  }) async {
     final proceed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -322,7 +430,7 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (externalContents != null) ...[
+              if (imported) ...[
                 Text(
                   'Ficheiro importado de fora da aplicação. Restaurar '
                   'substitui os dados atuais pelos deste documento.',
@@ -363,6 +471,7 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
           'de segurança da base atual. Ainda assim, confirme que é o '
           'ficheiro certo: a substituição não pode ser anulada dentro da '
           'aplicação.\n\n'
+          'Proteção: ${item.encrypted ? 'cifrado com frase-passe' : 'sem cifra'}.\n'
           'Conteúdo: ${_countsSummary(item.snapshot!)}.',
         ),
         actions: [
@@ -455,6 +564,8 @@ class _BackupsPageState extends ConsumerState<BackupsPage> {
       ..invalidate(budgetsProvider)
       ..invalidate(savingsGoalsProvider)
       ..invalidate(debtsProvider)
+      ..invalidate(reminderSettingsProvider)
+      ..invalidate(reminderNotificationsAllowedProvider)
       ..invalidate(forecastBundleProvider)
       ..invalidate(reportDataProvider);
   }
@@ -471,10 +582,19 @@ class _BackupTile extends StatelessWidget {
     final theme = Theme.of(context);
     final snapshot = item.snapshot;
     final valid = item.isValid;
+    final subtitle = valid
+        ? '${_formatDateTime(snapshot!.createdAt)} · '
+              '${PluralFormatter.count(item.totalRows, 'registo', 'registos')} · '
+              '${_formatSize(item.file.sizeBytes)}'
+              '${item.encrypted ? ' · cifrado' : ''}'
+        : item.encrypted
+        ? 'Cifrado · frase-passe necessária · '
+              '${_formatSize(item.file.sizeBytes)}'
+        : item.error ?? 'Backup inválido';
     return ListTile(
       leading: DecoratedBox(
         decoration: BoxDecoration(
-          color: valid
+          color: valid || item.encrypted
               ? theme.colorScheme.primaryContainer
               : theme.colorScheme.errorContainer,
           borderRadius: AppRadii.control,
@@ -482,9 +602,13 @@ class _BackupTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.sm),
           child: Icon(
-            valid ? Icons.check_circle_outline : Icons.error_outline,
+            valid
+                ? Icons.check_circle_outline
+                : item.encrypted
+                ? Icons.lock_outline
+                : Icons.error_outline,
             size: 20,
-            color: valid
+            color: valid || item.encrypted
                 ? theme.colorScheme.onPrimaryContainer
                 : theme.colorScheme.onErrorContainer,
           ),
@@ -495,15 +619,7 @@ class _BackupTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Text(
-        valid
-            ? '${_formatDateTime(snapshot!.createdAt)} · '
-                  '${PluralFormatter.count(item.totalRows, 'registo', 'registos')} · '
-                  '${_formatSize(item.file.sizeBytes)}'
-            : item.error ?? 'Backup inválido',
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
+      subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
@@ -547,6 +663,12 @@ class _BackupDetails extends StatelessWidget {
           ),
         ),
         AppDataRow(
+          label: 'Proteção',
+          value: Text(
+            item.encrypted ? 'Cifrado ($encryptedBackupCipher)' : 'Sem cifra',
+          ),
+        ),
+        AppDataRow(
           label: 'Dimensão',
           value: Text(
             '${PluralFormatter.count(snapshot.totalRows, 'registo', 'registos')} · '
@@ -571,6 +693,290 @@ class _BackupDetails extends StatelessWidget {
           'Ao restaurar, os dados atuais são substituídos. É criada uma cópia '
           'automática antes da substituição.',
           style: theme.textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _BackupCreation {
+  const _BackupCreation(this.passphrase);
+
+  /// `null` cria um ficheiro simples, sem cifra.
+  final String? passphrase;
+}
+
+/// Escolha explícita entre backup cifrado e simples; a frase-passe nunca é
+/// guardada e só existe nesta janela.
+class _BackupCreationDialog extends StatefulWidget {
+  const _BackupCreationDialog();
+
+  @override
+  State<_BackupCreationDialog> createState() => _BackupCreationDialogState();
+}
+
+class _BackupCreationDialogState extends State<_BackupCreationDialog> {
+  final _passphrase = TextEditingController();
+  final _confirmation = TextEditingController();
+  bool _encrypted = true;
+  bool _visible = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _passphrase.dispose();
+    _confirmation.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_encrypted) {
+      Navigator.of(context).pop(const _BackupCreation(null));
+      return;
+    }
+    final value = _passphrase.text;
+    if (value.runes.length < minimumBackupPassphraseLength) {
+      setState(() {
+        _error =
+            'A frase-passe deve ter pelo menos '
+            '$minimumBackupPassphraseLength caracteres.';
+      });
+      return;
+    }
+    if (value != _confirmation.text) {
+      setState(() => _error = 'As frases-passe não coincidem.');
+      return;
+    }
+    Navigator.of(context).pop(_BackupCreation(value));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: const Text('Criar backup'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Escolha como proteger o ficheiro:'),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              children: [
+                ChoiceChip(
+                  key: const Key('backup-option-encrypted'),
+                  label: const Text('Cifrado'),
+                  selected: _encrypted,
+                  onSelected: (_) => setState(() {
+                    _encrypted = true;
+                    _error = null;
+                  }),
+                ),
+                ChoiceChip(
+                  key: const Key('backup-option-plain'),
+                  label: const Text('Sem cifra'),
+                  selected: !_encrypted,
+                  onSelected: (_) => setState(() {
+                    _encrypted = false;
+                    _error = null;
+                  }),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (_encrypted) ...[
+              TextField(
+                key: const Key('backup-passphrase'),
+                controller: _passphrase,
+                obscureText: !_visible,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(
+                  labelText: 'Frase-passe',
+                  helperText:
+                      'Mínimo $minimumBackupPassphraseLength caracteres. '
+                      'Não é guardada.',
+                  suffixIcon: IconButton(
+                    key: const Key('backup-passphrase-visible'),
+                    tooltip: _visible ? 'Ocultar' : 'Mostrar',
+                    onPressed: () => setState(() => _visible = !_visible),
+                    icon: Icon(
+                      _visible
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                key: const Key('backup-passphrase-confirm'),
+                controller: _confirmation,
+                obscureText: !_visible,
+                autocorrect: false,
+                enableSuggestions: false,
+                onSubmitted: (_) => _submit(),
+                decoration: const InputDecoration(
+                  labelText: 'Repetir a frase-passe',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Se esquecer a frase-passe, o backup não pode ser recuperado. '
+                'Não existe forma de a recuperar na aplicação.',
+                style: theme.textTheme.bodySmall,
+              ),
+            ] else
+              Text(
+                'O ficheiro fica legível por quem tiver acesso a ele. Use '
+                'apenas se precisar de o abrir fora da aplicação.',
+                style: theme.textTheme.bodySmall,
+              ),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                _error!,
+                key: const Key('backup-create-error'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          key: const Key('backup-create-confirm'),
+          onPressed: _submit,
+          child: const Text('Criar backup'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Pede a frase-passe e valida-a no próprio diálogo, para que uma frase errada
+/// não feche a janela nem mostre dados. A frase não é guardada.
+class _BackupPassphraseDialog extends StatefulWidget {
+  const _BackupPassphraseDialog({
+    required this.fileName,
+    required this.onVerify,
+  });
+
+  final String fileName;
+
+  /// Devolve `null` quando a frase abre o ficheiro, ou a mensagem de erro.
+  final Future<String?> Function(String passphrase) onVerify;
+
+  @override
+  State<_BackupPassphraseDialog> createState() =>
+      _BackupPassphraseDialogState();
+}
+
+class _BackupPassphraseDialogState extends State<_BackupPassphraseDialog> {
+  final _controller = TextEditingController();
+  bool _visible = false;
+  bool _checking = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_checking) {
+      return;
+    }
+    final value = _controller.text;
+    if (value.isEmpty) {
+      setState(() => _error = 'Escreva a frase-passe.');
+      return;
+    }
+    setState(() {
+      _checking = true;
+      _error = null;
+    });
+    final error = await widget.onVerify(value);
+    if (!mounted) {
+      return;
+    }
+    if (error != null) {
+      setState(() {
+        _checking = false;
+        _error = error;
+      });
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: const Text('Backup cifrado'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.fileName, style: theme.textTheme.titleSmall),
+            const SizedBox(height: AppSpacing.sm),
+            const Text(
+              'Escreva a frase-passe usada quando este backup foi criado.',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              key: const Key('backup-passphrase-input'),
+              controller: _controller,
+              obscureText: !_visible,
+              autocorrect: false,
+              enableSuggestions: false,
+              autofocus: true,
+              enabled: !_checking,
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                labelText: 'Frase-passe',
+                errorText: _error,
+                suffixIcon: IconButton(
+                  key: const Key('backup-passphrase-input-visible'),
+                  tooltip: _visible ? 'Ocultar' : 'Mostrar',
+                  onPressed: () => setState(() => _visible = !_visible),
+                  icon: Icon(
+                    _visible
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _checking ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          key: const Key('backup-unlock-confirm'),
+          onPressed: _checking ? null : _submit,
+          child: _checking
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Abrir'),
         ),
       ],
     );

@@ -24,6 +24,7 @@ import '../features/planning/presentation/savings_goal_form_page.dart';
 import '../features/planning/presentation/savings_goals_page.dart';
 import '../features/transactions/presentation/movement_form_page.dart';
 import '../features/transactions/presentation/movements_page.dart';
+import '../features/transactions/presentation/trash_page.dart';
 import 'shell/app_shell.dart';
 
 GoRouter buildRouter() => GoRouter(
@@ -58,6 +59,10 @@ GoRouter buildRouter() => GoRouter(
             GoRoute(
               path: 'new',
               builder: (context, state) => const MovementFormPage(),
+            ),
+            GoRoute(
+              path: 'trash',
+              builder: (context, state) => const TrashPage(),
             ),
             GoRoute(
               path: ':id/edit',

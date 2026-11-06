@@ -96,6 +96,7 @@ class MovementFilter {
     this.accountId,
     this.kind,
     this.categoryId,
+    this.query,
   });
 
   /// Movimentos do mês de [month].
@@ -111,12 +112,18 @@ class MovementFilter {
   final MovementKind? kind;
   final String? categoryId;
 
+  /// Pesquisa livre em descrição, notas, categoria e contas.
+  final String? query;
+
+  bool get hasQuery => query != null && query!.trim().isNotEmpty;
+
   bool get isActive =>
       from != null ||
       to != null ||
       accountId != null ||
       kind != null ||
-      categoryId != null;
+      categoryId != null ||
+      hasQuery;
 
   @override
   bool operator ==(Object other) =>
@@ -125,10 +132,11 @@ class MovementFilter {
       other.to == to &&
       other.accountId == accountId &&
       other.kind == kind &&
-      other.categoryId == categoryId;
+      other.categoryId == categoryId &&
+      other.query == query;
 
   @override
-  int get hashCode => Object.hash(from, to, accountId, kind, categoryId);
+  int get hashCode => Object.hash(from, to, accountId, kind, categoryId, query);
 }
 
 /// Movimento realizado de rendimento ou despesa. Transferências usam

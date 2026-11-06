@@ -8,7 +8,9 @@ import '../../../core/app_info.dart';
 import '../../../core/backup/backup_format.dart';
 import '../../../core/security/device_auth_providers.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../planning/presentation/reminder_providers.dart';
 import '../domain/app_settings.dart';
+import '../domain/reminder_settings.dart';
 import 'backup_providers.dart';
 import 'settings_providers.dart';
 
@@ -22,6 +24,11 @@ class SettingsPage extends ConsumerWidget {
     final lockEnabled = ref.watch(lockPreferenceProvider).value ?? false;
     final authSupport = ref.watch(deviceAuthSupportProvider);
     final supportsLock = authSupport.value ?? false;
+    final reminders =
+        ref.watch(reminderSettingsProvider).value ?? ReminderSettings.defaults;
+    final remindersSupported = ref.watch(reminderSupportProvider);
+    final notificationsAllowed =
+        ref.watch(reminderNotificationsAllowedProvider).value ?? true;
     final dataDirectory = ref.watch(appDataDirectoryProvider).value;
     final backupsDirectory = ref.watch(backupsDirectoryProvider).value;
     final exportsDirectory = ref.watch(exportsDirectoryProvider).value;
@@ -51,11 +58,13 @@ class SettingsPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 const Text(
-                  'A base SQLite e os ficheiros de backup/exportação não são '
-                  'cifrados. Quem tiver acesso físico aos ficheiros (por '
-                  'exemplo, num dispositivo desbloqueado ou com root) '
-                  'consegue lê-los. Proteja o dispositivo e guarde cópias '
-                  'fora dele.',
+                  'A base SQLite e as exportações não são cifradas. Os backups '
+                  'podem ser cifrados com frase-passe (AES-256-GCM) em cada '
+                  'criação; os backups simples e as cópias automáticas de '
+                  'restauro ficam legíveis. Quem tiver acesso físico aos '
+                  'ficheiros (por exemplo, num dispositivo desbloqueado ou com '
+                  'root) consegue lê-los. Proteja o dispositivo e guarde '
+                  'cópias fora dele.',
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 const Text(
@@ -64,7 +73,7 @@ class SettingsPage extends ConsumerWidget {
                   'abrir e depois de 60 segundos em segundo plano. É apenas '
                   'uma barreira de interface: não cifra a base nem os '
                   'backups. Para proteção real, proteja o desbloqueio do '
-                  'telefone.',
+                  'telefone e crie backups cifrados.',
                 ),
               ],
             ),
@@ -104,6 +113,61 @@ class SettingsPage extends ConsumerWidget {
                   'A aplicação volta a pedir o desbloqueio depois de 60 '
                   'segundos em segundo plano. O bloqueio não cifra a base de '
                   'dados nem os backups.',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SectionCard(
+            key: const Key('settings-reminders'),
+            leading: Icon(
+              Icons.notifications_active_outlined,
+              color: theme.colorScheme.primary,
+            ),
+            title: 'Lembretes',
+            subtitle: 'Avisos locais de vencimentos e limites',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  key: const Key('settings-reminders-switch'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Lembretes no telemóvel'),
+                  subtitle: Text(
+                    !remindersSupported
+                        ? 'Disponível apenas em Android e iOS.'
+                        : reminders.enabled && !notificationsAllowed
+                        ? 'Permissão de notificações desligada no sistema. '
+                              'Ativa-a nas definições do telemóvel.'
+                        : reminders.enabled
+                        ? 'Ativos às ${reminders.timeLabel}.'
+                        : 'Avisa um dia antes e no dia do vencimento e '
+                              'resume os orçamentos excedidos no fim do mês.',
+                  ),
+                  value: reminders.enabled,
+                  onChanged: remindersSupported
+                      ? (value) => _setReminders(context, ref, value)
+                      : null,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  key: const Key('settings-reminder-time'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.schedule_outlined),
+                  title: const Text('Hora do lembrete'),
+                  subtitle: Text(reminders.timeLabel),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: remindersSupported
+                      ? () => _pickReminderTime(context, ref, reminders)
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'As notificações são agendadas no próprio telemóvel, sem '
+                  'internet. O sistema pode mostrar o conteúdo no ecrã de '
+                  'bloqueio; ajusta as pré-visualizações nas definições do '
+                  'telemóvel se preferires manter os valores privados.',
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -257,6 +321,68 @@ class SettingsPage extends ConsumerWidget {
   Future<void> _setLock(WidgetRef ref, bool enabled) async {
     await ref.read(appSettingsRepositoryProvider).saveLockOnOpen(enabled);
     ref.invalidate(lockPreferenceProvider);
+  }
+
+  Future<void> _setReminders(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final changed = await ref
+        .read(reminderCoordinatorProvider)
+        .setEnabled(enabled);
+    ref.invalidate(reminderSettingsProvider);
+    ref.invalidate(reminderNotificationsAllowedProvider);
+    messenger.hideCurrentSnackBar();
+    if (!changed) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            enabled
+                ? 'Lembretes não ativados. Confirme a permissão de '
+                      'notificações nas definições do sistema.'
+                : 'Não foi possível alterar os lembretes.',
+          ),
+        ),
+      );
+      return;
+    }
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          enabled ? 'Lembretes ativados.' : 'Lembretes desativados.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickReminderTime(
+    BuildContext context,
+    WidgetRef ref,
+    ReminderSettings current,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: current.hour, minute: current.minute),
+      helpText: 'Hora do lembrete',
+      cancelText: 'Cancelar',
+      confirmText: 'Guardar',
+    );
+    if (picked == null) {
+      return;
+    }
+    try {
+      await ref
+          .read(reminderCoordinatorProvider)
+          .setTime(picked.hour, picked.minute);
+      ref.invalidate(reminderSettingsProvider);
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Não foi possível guardar a hora.')),
+      );
+    }
   }
 
   Future<void> _copy(BuildContext context, String path) async {

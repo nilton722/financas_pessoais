@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:financas_pessoais/core/backup/backup_crypto.dart';
 import 'package:financas_pessoais/core/backup/backup_format.dart';
 import 'package:financas_pessoais/core/backup/backup_service.dart';
 import 'package:financas_pessoais/core/backup/backup_storage.dart';
@@ -64,6 +65,10 @@ void main() {
     expect(find.text('Ainda sem backups'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('backup-create')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('backup-option-plain')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('backup-create-confirm')));
     await pumpDisk(tester, find.textContaining('Backup criado'));
     expect(find.textContaining('Backup criado'), findsOneWidget);
 
@@ -141,6 +146,164 @@ void main() {
         .whereType<File>()
         .map((file) => file.uri.pathSegments.last);
     expect(backupFiles.any((name) => name.startsWith('pre-restore-')), isTrue);
+
+    await disposeApp(tester);
+  });
+
+  testWidgets('backup cifrado pede a frase-passe e restaura', (tester) async {
+    const passphrase = 'frase-segura-2026';
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final root = createRoot();
+    final wallet = await createTestAccount(
+      db,
+      name: 'Carteira',
+      openingBalance: 10000,
+    );
+    await pumpApp(tester, db, filesRoot: () async => root);
+
+    await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
+    await scrollToVisible(tester, find.byKey(const Key('settings-backups')));
+    await tester.tap(find.byKey(const Key('settings-backups')));
+    await pumpDisk(tester, find.text('Ainda sem backups'));
+
+    await tester.tap(find.byKey(const Key('backup-create')));
+    await settle(tester);
+    await tester.enterText(
+      find.byKey(const Key('backup-passphrase')),
+      passphrase,
+    );
+    await tester.enterText(
+      find.byKey(const Key('backup-passphrase-confirm')),
+      passphrase,
+    );
+    await tester.tap(find.byKey(const Key('backup-create-confirm')));
+    await pumpDisk(tester, find.textContaining('cifrado com frase-passe'));
+    expect(find.textContaining('cifrado com frase-passe'), findsOneWidget);
+
+    final file = backupsFolder(root)
+        .listSync()
+        .whereType<File>()
+        .singleWhere((file) {
+          return file.uri.pathSegments.last.startsWith('backup-');
+        });
+    final onDisk = file.readAsStringSync();
+    expect(isEncryptedBackup(onDisk), isTrue);
+    expect(onDisk.contains('Carteira'), isFalse);
+    expect(onDisk.contains('"tables"'), isFalse);
+
+    await tester.pump(const Duration(seconds: 5));
+    await settle(tester);
+    await pumpDisk(tester, find.byKey(const Key('backup-list')));
+    expect(find.textContaining('Cifrado · frase-passe'), findsOneWidget);
+
+    final repository = TransactionRepository(db);
+    await tester.runAsync(
+      () => repository.createMovement(
+        MovementDraft(
+          kind: MovementKind.expense,
+          amount: 2500,
+          date: FinancialDate.today(),
+          accountId: wallet,
+          categoryId: seededFoodCategoryId,
+          description: 'Compra posterior',
+        ),
+      ),
+    );
+
+    await tapVisible(
+      tester,
+      find.descendant(
+        of: find.byKey(const Key('backup-list')),
+        matching: find.byType(ListTile),
+      ),
+    );
+    await pumpDisk(tester, find.text('Backup cifrado'));
+    expect(find.text('Backup cifrado'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('backup-passphrase-input')),
+      'frase-errada-2026',
+    );
+    await tester.tap(find.byKey(const Key('backup-unlock-confirm')));
+    await pumpDisk(
+      tester,
+      find.text('Frase-passe incorreta ou ficheiro alterado.'),
+    );
+    expect(
+      find.text('Frase-passe incorreta ou ficheiro alterado.'),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('backup-passphrase-input')),
+      passphrase,
+    );
+    await tester.tap(find.byKey(const Key('backup-unlock-confirm')));
+    await pumpDisk(tester, find.text('Conteúdo'));
+    expect(find.textContaining('Cifrado (AES-256-GCM)'), findsOneWidget);
+
+    await tapVisible(tester, find.byKey(const Key('backup-restore')));
+    expect(find.text('Restaurar este backup?'), findsOneWidget);
+    expect(find.textContaining('cifrado com frase-passe'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('backup-confirm-restore')));
+    await pumpDisk(tester, find.text('Backup restaurado'));
+    expect(find.text('Backup restaurado'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Concluir'));
+    await pumpDisk(tester, find.textContaining('pre-restore'));
+    expect(
+      await tester.runAsync(
+        () => repository.readMovements(const MovementFilter()),
+      ),
+      isEmpty,
+    );
+
+    await disposeApp(tester);
+  });
+
+  testWidgets('a criação cifrada valida tamanho e confirmação', (tester) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final root = createRoot();
+    await createTestAccount(db, name: 'Carteira', openingBalance: 10000);
+    await pumpApp(tester, db, filesRoot: () async => root);
+
+    await tapVisible(tester, find.byKey(const Key('dashboard-settings')));
+    await scrollToVisible(tester, find.byKey(const Key('settings-backups')));
+    await tester.tap(find.byKey(const Key('settings-backups')));
+    await pumpDisk(tester, find.text('Ainda sem backups'));
+
+    await tester.tap(find.byKey(const Key('backup-create')));
+    await settle(tester);
+    await tester.enterText(find.byKey(const Key('backup-passphrase')), 'curta');
+    await tester.enterText(
+      find.byKey(const Key('backup-passphrase-confirm')),
+      'curta',
+    );
+    await tester.tap(find.byKey(const Key('backup-create-confirm')));
+    await settle(tester);
+    expect(find.textContaining('pelo menos 8'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('backup-passphrase')),
+      'frase-segura-2026',
+    );
+    await tester.enterText(
+      find.byKey(const Key('backup-passphrase-confirm')),
+      'frase-diferente-2026',
+    );
+    await tester.tap(find.byKey(const Key('backup-create-confirm')));
+    await settle(tester);
+    expect(find.text('As frases-passe não coincidem.'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
+    await settle(tester);
+    final files = backupsFolder(root)
+        .listSync()
+        .whereType<File>()
+        .where((file) => file.uri.pathSegments.last.startsWith('backup-'));
+    expect(files, isEmpty);
 
     await disposeApp(tester);
   });
@@ -223,6 +386,10 @@ void main() {
     await pumpDisk(tester, find.text('Ainda sem backups'));
 
     await tester.tap(find.byKey(const Key('backup-save-to')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('backup-option-plain')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('backup-create-confirm')));
     await pumpDisk(tester, find.textContaining('Backup guardado'));
 
     expect(savedName, startsWith('backup-'));
@@ -262,6 +429,10 @@ void main() {
     await pumpDisk(tester, find.text('Ainda sem backups'));
 
     await tester.tap(find.byKey(const Key('backup-save-to')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('backup-option-plain')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('backup-create-confirm')));
     await pumpDisk(tester, find.textContaining('não foi guardado fora'));
 
     final files = backupsFolder(root)

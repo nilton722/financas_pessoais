@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- O ícone é referido em tempo de execução por nome, a partir do Dart, pelo
+     que o otimizador de recursos não o deteta sozinho. Mantê-lo no APK de
+     release é obrigatório para as notificações agendadas. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_notify" />

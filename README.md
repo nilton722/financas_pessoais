@@ -8,16 +8,15 @@ oficial, o logótipo, a paleta e o splash vivem em `assets/branding/` e nas
 configurações nativas; os ícones Android/iOS são gerados a partir da arte
 aprovada sem dependências adicionais.
 
-**Estado:** Fase 07 (bloqueio ao abrir) concluída — bloqueio opcional com as
-credenciais do telefone validado no emulador. As Fases 01–07 estão concluídas.
-Tudo offline, sem backend nem telemetria.
+**Estado:** Fase 09 (cifra dos backups) concluída e validada. As Fases 01–09
+estão concluídas. Tudo offline, sem backend nem telemetria.
 
 Manual de instalação e uso: [docs/MANUAL.md](docs/MANUAL.md).
 Guia de funcionalidades (quando usar cada uma e o que muda nos números):
 [docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIONALIDADES.md).
 Relatório de validação desta fase e defeitos conhecidos:
-[docs/VALIDACAO-FASE-07.md](docs/VALIDACAO-FASE-07.md); anterior:
-[docs/VALIDACAO-FASE-06.md](docs/VALIDACAO-FASE-06.md).
+[docs/VALIDACAO-FASE-09.md](docs/VALIDACAO-FASE-09.md); anterior:
+[docs/VALIDACAO-FASE-08.md](docs/VALIDACAO-FASE-08.md).
 Design system, marca, tokens e política de apresentação de dados:
 [docs/DESIGN.md](docs/DESIGN.md) (ADR-032, ADR-033 e ADR-034).
 
@@ -52,7 +51,7 @@ flutter test
 
 Validação de release: `dart format --set-exit-if-changed lib test`,
 `flutter analyze`, `flutter test` e `flutter build apk --release` — resultados e
-data em [docs/VALIDACAO-FASE-07.md](docs/VALIDACAO-FASE-07.md).
+data em [docs/VALIDACAO-FASE-09.md](docs/VALIDACAO-FASE-09.md).
 
 O `dart format .` inclui `build/`, cujos nomes de ficheiros gerados pelo Gradle
 excedem o limite de caminho do Windows e fazem o comando falhar; use `lib test`
@@ -135,8 +134,11 @@ Quando usar cada funcionalidade: [docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIO
 - Transferências entre contas próprias: um registo lógico e uma operação
   atómica, sem alterar rendimentos, despesas ou saldo consolidado.
 - Saldo por conta e consolidado, calculados a partir dos movimentos reais.
-- Lista de movimentos com filtros de período, conta, tipo e categoria, edição
-  e eliminação lógica.
+- Lista de movimentos com filtros de período, conta, tipo e categoria,
+  pesquisa livre por descrição/notas/categoria/conta, edição e envio para a
+  lixeira. A lixeira permite restaurar (religando o pagamento ao compromisso
+  ou dívida, quando aplicável) ou eliminar definitivamente — ADR-041 e
+  ADR-042.
 - Painel com saldo real consolidado e saldo projetado distinguidos visualmente
   (cartão verde “Saldo real consolidado” e cartão “Projetado” com data de
   corte), rendimentos/despesas do mês, resumo de orçamentos, compromissos
@@ -146,9 +148,14 @@ Quando usar cada funcionalidade: [docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIO
   despesas e resultado; transferências aparecem à parte sem alterar os totais.
 - Exportação CSV local, iniciada pelo utilizador, em UTF-8 com BOM, `;` e datas
   `DD/MM/YYYY`; o caminho do ficheiro pode ser copiado — ver ADR-029.
+- **Guardar CSV em…** pelo seletor de gravação do sistema, para levar o
+  relatório para Downloads, Google Drive, OneDrive ou outro destino — ADR-040.
 - Backup JSON versionado (formato v1, esquema v4) com as 12 tabelas de dados,
   configurações, contagens e checksum; pré-visualização e confirmação antes de
   restaurar.
+- Backup opcionalmente cifrado com AES-256-GCM e frase-passe, chave derivada por
+  PBKDF2-HMAC-SHA256 com sal aleatório; a frase não é guardada e o ficheiro
+  simples antigo continua a poder ser restaurado — ADR-045.
 - **Guardar backup em…** pelo seletor de gravação do sistema (Storage Access
   Framework no Android), para Downloads, Google Drive, OneDrive ou outro
   destino. A app continua sem permissão `INTERNET`; a transferência para a
@@ -159,10 +166,14 @@ Quando usar cada funcionalidade: [docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIO
 - Restauro atómico: valida o ficheiro, cria uma cópia `pre-restore-…json` da
   base atual e substitui tudo numa única transação SQLite com verificação de
   contagens e chaves estrangeiras; um erro não deixa base parcial — ADR-028.
-- Definições com privacidade, bloqueio ao abrir, caminhos dos
+- Definições com privacidade, bloqueio ao abrir, lembretes locais, caminhos dos
   dados/backups/exportações e versão; a app não pede permissões de
   armazenamento e backup, exportação e importação são sempre iniciados pelo
-  utilizador — ver [docs/PRIVACY.md](docs/PRIVACY.md).
+  utilizador. A permissão de notificações só é pedida ao ativar os lembretes —
+  ver [docs/PRIVACY.md](docs/PRIVACY.md).
+- O backup automático do Android está desativado (`allowBackup="false"`): a
+  base e as preferências não são copiadas para a conta Google. A cópia é
+  sempre criada e guardada pelo utilizador — ADR-039.
 - Bloqueio opcional ao abrir com PIN, padrão, palavra-passe ou biometria do
   telefone, delegado no sistema; volta a pedir após 60 segundos em segundo
   plano. É uma barreira de interface e não cifra a base — ADR-037.
@@ -170,7 +181,9 @@ Quando usar cada funcionalidade: [docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIO
   opcionais; pagamento total ou parcial cria exatamente um movimento real e
   nunca duplica o caixa. Cancelar remove a previsão e mantém pagamentos.
 - Recorrências semanais, mensais e anuais ancoradas na data de início, com
-  ocorrências idempotentes e pausa reversível.
+  ocorrências idempotentes, pausa reversível e edição posterior de tipo,
+  frequência, início e fim: as ocorrências futuras ainda sem pagamentos são
+  reconstruídas, as passadas e pagas mantêm-se — ADR-043.
 - Orçamentos mensais por categoria, com gasto, restante e percentagem
   calculados a partir de despesas reais (transferências excluídas).
 - Metas de poupança com alvo, data opcional e progresso lido do saldo real da
@@ -179,6 +192,11 @@ Quando usar cada funcionalidade: [docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIO
   liquidação por movimento `expense`/`income`.
 - Alertas locais dentro da app para compromissos a vencer/vencidos, dívidas
   vencidas e orçamentos excedidos.
+- Lembretes opcionais no telemóvel, agendados localmente: aviso na véspera e no
+  dia de cada compromisso em aberto (até 365 dias) e um resumo no fim do mês
+  quando algum orçamento foi excedido. A permissão de notificações só é pedida
+  ao ativar; sem rede, sem servidor e com cancelamento limpo ao desligar —
+  ADR-044.
 - Previsão local determinística a 7, 30 e 90 dias: saldo de partida a partir dos
   movimentos reais, compromissos em aberto (líquidos do já pago) e ocorrências
   recorrentes materializadas uma única vez; despesas históricas só entram com
@@ -202,3 +220,5 @@ Quando usar cada funcionalidade: [docs/GUIA-FUNCIONALIDADES.md](docs/GUIA-FUNCIO
 | 05 | Dashboard, relatórios, backup, privacidade | concluída |
 | 06 | Validação e preparação Android | concluída |
 | 07 | Bloqueio ao abrir com as credenciais do telefone | concluída |
+| 08 | Pesquisa, lixeira, recorrências editáveis e lembretes locais | concluída |
+| 09 | Backup cifrado com frase-passe (AES-256-GCM) | concluída |

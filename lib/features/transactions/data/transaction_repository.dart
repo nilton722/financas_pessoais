@@ -24,8 +24,22 @@ class TransactionRepository {
     return rows.map(_toListItem).toList(growable: false);
   }
 
-  Selectable<QueryRow> _movementsQuery(MovementFilter filter) {
-    final conditions = <String>['t.deleted_at IS NULL'];
+  /// Movimentos eliminados, do mais recente para o mais antigo. A lixeira
+  /// não entra em totais, relatórios, previsão nem saldos.
+  Stream<List<MovementListItem>> watchDeletedMovements() {
+    return _movementsQuery(
+      const MovementFilter(),
+      onlyDeleted: true,
+    ).watch().map((rows) => rows.map(_toListItem).toList(growable: false));
+  }
+
+  Selectable<QueryRow> _movementsQuery(
+    MovementFilter filter, {
+    bool onlyDeleted = false,
+  }) {
+    final conditions = <String>[
+      onlyDeleted ? 't.deleted_at IS NOT NULL' : 't.deleted_at IS NULL',
+    ];
     final variables = <Variable>[];
 
     if (filter.from != null) {
@@ -54,6 +68,19 @@ class TransactionRepository {
         ..add(Variable.withString(filter.accountId!))
         ..add(Variable.withString(filter.accountId!));
     }
+    if (filter.hasQuery) {
+      final pattern = '%${_escapeLike(filter.query!.trim())}%';
+      conditions.add(
+        "(COALESCE(t.description, '') LIKE ? ESCAPE '\\' "
+        "OR COALESCE(t.notes, '') LIKE ? ESCAPE '\\' "
+        "OR COALESCE(c.name, '') LIKE ? ESCAPE '\\' "
+        "OR a.name LIKE ? ESCAPE '\\' "
+        "OR COALESCE(d.name, '') LIKE ? ESCAPE '\\')",
+      );
+      for (var index = 0; index < 5; index++) {
+        variables.add(Variable.withString(pattern));
+      }
+    }
 
     final sql =
         '''
@@ -67,7 +94,8 @@ JOIN accounts a ON a.id = t.account_id
 LEFT JOIN accounts d ON d.id = t.destination_account_id
 LEFT JOIN categories c ON c.id = t.category_id
 WHERE ${conditions.join(' AND ')}
-ORDER BY t.transaction_date DESC, t.created_at DESC
+ORDER BY ${onlyDeleted ? 't.deleted_at DESC, ' : ''}t.transaction_date DESC,
+         t.created_at DESC
 ''';
 
     return _db.customSelect(
@@ -224,9 +252,9 @@ ORDER BY t.transaction_date DESC, t.created_at DESC
   }
 
   /// Eliminação lógica: o registo deixa de contar para saldos e listas mas
-  /// permanece na base para auditoria. Se o movimento liquidava um
-  /// compromisso ou dívida, a alocação é removida e o estado é recalculado
-  /// dentro da mesma transação, para não deixar saldos pendentes incoerentes.
+  /// permanece na base e na lixeira. A alocação a um compromisso ou dívida é
+  /// preservada (as leituras ignoram-na enquanto o movimento está eliminado),
+  /// para que restaurar o movimento volte a ligá-lo ao mesmo compromisso.
   Future<void> softDelete(String id) async {
     await _db.transaction(() async {
       final existing = await _requireExisting(id);
@@ -238,6 +266,88 @@ ORDER BY t.transaction_date DESC, t.created_at DESC
         db.TransactionsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
       );
 
+      final planned = await _findPlannedPayment(id);
+      if (planned != null) {
+        await _refreshPlannedItem(planned.plannedItemId);
+      }
+      final debt = await _findDebtPayment(id);
+      if (debt != null) {
+        await _refreshDebt(debt.debtId);
+      }
+    });
+  }
+
+  /// Repõe um movimento eliminado. Se estava ligado a um compromisso ou
+  /// dívida, a ligação é reativada e o estado é recalculado; se outra
+  /// liquidação entretanto ocupou o saldo, a reposição é recusada para não
+  /// exceder o valor combinado.
+  Future<void> restore(String id) async {
+    await _db.transaction(() async {
+      final existing = await _requireExisting(id);
+      if (existing.deletedAt == null) {
+        return;
+      }
+      final planned = await _findPlannedPayment(id);
+      if (planned != null) {
+        final item = await _requirePlannedItemRow(planned.plannedItemId);
+        if (item.status == 'cancelled') {
+          throw const AppFailure(
+            'O compromisso associado está cancelado; não é possível restaurar '
+            'este movimento.',
+          );
+        }
+        final paid = await _plannedPaidTotal(item.id);
+        if (paid + planned.amount > item.amount) {
+          throw const AppFailure(
+            'O compromisso associado já foi pago por outro movimento; '
+            'este não pode ser restaurado.',
+          );
+        }
+      }
+      final debt = await _findDebtPayment(id);
+      if (debt != null) {
+        final row = await _requireDebtRow(debt.debtId);
+        if (row.status == 'cancelled') {
+          throw const AppFailure(
+            'A dívida associada está cancelada; não é possível restaurar '
+            'este movimento.',
+          );
+        }
+        final paid = await _debtPaidTotal(row.id);
+        if (paid + debt.amount > row.originalAmount) {
+          throw const AppFailure(
+            'A dívida associada já foi liquidada por outro movimento; '
+            'este não pode ser restaurado.',
+          );
+        }
+      }
+
+      await (_db.update(_db.transactions)..where((t) => t.id.equals(id))).write(
+        db.TransactionsCompanion(
+          deletedAt: const Value(null),
+          updatedAt: Value(utcNowIsoString()),
+        ),
+      );
+      if (planned != null) {
+        await _refreshPlannedItem(planned.plannedItemId);
+      }
+      if (debt != null) {
+        await _refreshDebt(debt.debtId);
+      }
+    });
+  }
+
+  /// Remove definitivamente um movimento que já está na lixeira. As
+  /// alocações deixadas pela eliminação lógica são removidas e os estados dos
+  /// compromissos e dívidas são recalculados antes de apagar o movimento.
+  Future<void> deletePermanently(String id) async {
+    await _db.transaction(() async {
+      final existing = await _requireExisting(id);
+      if (existing.deletedAt == null) {
+        throw const AppFailure(
+          'Só é possível eliminar definitivamente movimentos na lixeira.',
+        );
+      }
       final planned = await _findPlannedPayment(id);
       if (planned != null) {
         await (_db.delete(
@@ -252,6 +362,15 @@ ORDER BY t.transaction_date DESC, t.created_at DESC
         )..where((t) => t.id.equals(debt.id))).go();
         await _refreshDebt(debt.debtId);
       }
+      await (_db.update(
+        _db.recurringOccurrences,
+      )..where((t) => t.transactionId.equals(id))).write(
+        const db.RecurringOccurrencesCompanion(transactionId: Value(null)),
+      );
+      await (_db.update(_db.plannedItems)
+            ..where((t) => t.transactionId.equals(id)))
+          .write(const db.PlannedItemsCompanion(transactionId: Value(null)));
+      await (_db.delete(_db.transactions)..where((t) => t.id.equals(id))).go();
     });
   }
 
@@ -497,6 +616,13 @@ WHERE p.debt_id = ? AND t.deleted_at IS NULL
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
+
+  /// Neutraliza os caracteres especiais do `LIKE`, para que uma pesquisa por
+  /// `%` ou `_` procure o próprio caractere em vez de funcionar como curinga.
+  String _escapeLike(String value) => value
+      .replaceAll('\\', '\\\\')
+      .replaceAll('%', '\\%')
+      .replaceAll('_', '\\_');
 
   Movement _toDomain(db.Transaction row) => Movement(
     id: row.id,

@@ -45,15 +45,20 @@ Regras garantidas na base:
 - `income`/`expense` exigem `destination_account_id IS NULL`.
 - Índices: `transaction_date`, `account_id`, `category_id`, `kind`.
 
-**Política de eliminação (ADR-016):** `deleted_at` preenchido marca registo
-eliminado. Registos eliminados ficam fora de saldos, orçamentos e relatórios e
-nunca são apagados fisicamente. Todas as consultas da Fase 02 filtram por
-`deleted_at IS NULL`.
+**Política de eliminação (ADR-016 e ADR-042):** `deleted_at` preenchido marca
+registo eliminado. Registos eliminados ficam fora de saldos, orçamentos e
+relatórios e todas as consultas os filtram por `deleted_at IS NULL`. Um
+movimento eliminado fica na lixeira e conserva as respetivas linhas em
+`planned_item_payments` e `debt_payments`, para que o restauro volte a ligá-lo
+ao compromisso ou à dívida. A eliminação física só acontece a partir da lixeira
+e remove também essas afiliações; o registo desaparece então da base.
 
 ### `app_settings`
 
 `key`, `value`, `updated_at`. Chaves semeadas: `currency_code`, `locale`,
-`time_zone`.
+`time_zone`. Criadas na primeira alteração, sem migração: `lock_on_open`,
+`reminders_enabled` (`true`/`false`) e `reminder_time` (`HH:mm`, predefinição
+`09:00`).
 
 ### `schema_migrations`
 
@@ -224,7 +229,10 @@ O backup inclui 12 tabelas — todas as de dados do utilizador:
 `savings_goals`, `debts` e `debt_payments`. `schema_migrations` fica de fora:
 descreve a migração da base, não o conteúdo. O restauro valida o ficheiro e
 substitui os dados numa única transação com `PRAGMA foreign_key_check`
-(ADR-028). Formato, localizações e recuperação: [BACKUP.md](BACKUP.md).
+(ADR-028). O backup pode ser guardado em claro ou dentro de um envelope
+AES-256-GCM com frase-passe (ADR-045); em ambos os casos o documento interior é
+o mesmo JSON v1/`schemaVersion: 4` e o esquema SQLite não muda. Formato,
+localizações e recuperação: [BACKUP.md](BACKUP.md).
 
 ## Fase 06 — sem alterações de esquema
 
@@ -292,6 +300,7 @@ Regras do processo:
 `test/unit/forecast/forecast_engine_test.dart`,
 `test/unit/repositories/forecast_repository_test.dart`,
 `test/unit/backup/backup_format_test.dart`,
+`test/unit/backup/backup_crypto_test.dart`,
 `test/unit/backup/backup_service_test.dart`,
 `test/unit/reports/report_test.dart`,
 `test/unit/reports/report_csv_test.dart`,

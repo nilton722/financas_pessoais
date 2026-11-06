@@ -10,6 +10,7 @@ import '../../../core/formatters/plural_formatter.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/money_text.dart';
 import '../../../core/widgets/section_card.dart';
+import '../data/report_csv.dart';
 import '../domain/report.dart';
 import 'reports_providers.dart';
 
@@ -22,6 +23,7 @@ class ReportsPage extends ConsumerStatefulWidget {
 
 class _ReportsPageState extends ConsumerState<ReportsPage> {
   bool _exporting = false;
+  bool _saving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +59,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                 onExport: value.summary.isEmpty || _exporting
                     ? null
                     : () => _export(value),
+                onSave: value.summary.isEmpty || _saving
+                    ? null
+                    : () => _saveCsv(value),
               ),
               AsyncError(:final error) => _ErrorCard(
                 error: error,
@@ -152,6 +157,54 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       }
     }
   }
+
+  Future<void> _saveCsv(ReportData data) async {
+    setState(() => _saving = true);
+    var createdLocal = false;
+    try {
+      final period = ref.read(reportFilterProvider).period;
+      final file = await ref
+          .read(reportExportServiceProvider)
+          .export(from: period.from, to: period.to, items: data.items);
+      createdLocal = true;
+      final fileName = file.uri.pathSegments.last;
+      final saved = await ref.read(reportFileSaverProvider)(
+        fileName: fileName,
+        contents: ReportCsv.encode(data.items),
+      );
+      if (!mounted) {
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            saved
+                ? 'Relatório guardado no destino escolhido: $fileName.'
+                : 'Relatório criado na aplicação, mas não foi guardado fora '
+                      'do dispositivo.',
+          ),
+        ),
+      );
+    } on AppFailure catch (failure) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              createdLocal
+                  ? '${failure.message} A cópia local foi mantida.'
+                  : failure.message,
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
 }
 
 class _PeriodCard extends StatelessWidget {
@@ -223,12 +276,14 @@ class _ReportBody extends StatelessWidget {
     required this.mode,
     required this.onMode,
     required this.onExport,
+    required this.onSave,
   });
 
   final ReportData data;
   final ReportGroupMode mode;
   final ValueChanged<ReportGroupMode> onMode;
   final VoidCallback? onExport;
+  final VoidCallback? onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -315,6 +370,13 @@ class _ReportBody extends StatelessWidget {
           onPressed: onExport,
           icon: const Icon(Icons.download_outlined),
           label: const Text('Exportar CSV'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton.icon(
+          key: const Key('report-save-to'),
+          onPressed: onSave,
+          icon: const Icon(Icons.save_alt),
+          label: const Text('Guardar CSV em…'),
         ),
         if (onExport == null)
           Padding(

@@ -26,6 +26,30 @@ class MovementsPage extends ConsumerStatefulWidget {
 
 class _MovementsPageState extends ConsumerState<MovementsPage> {
   bool _showFilters = false;
+  bool _showSearch = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _showSearch = !_showSearch;
+      if (!_showSearch) {
+        _searchController.clear();
+        ref.read(movementFilterProvider.notifier).setQuery(null);
+      }
+    });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    ref.read(movementFilterProvider.notifier).setQuery(null);
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +71,13 @@ class _MovementsPageState extends ConsumerState<MovementsPage> {
         title: const Text('Movimentos'),
         actions: [
           IconButton(
+            tooltip: _showSearch ? 'Fechar pesquisa' : 'Pesquisar',
+            isSelected: _showSearch,
+            icon: const Icon(Icons.search),
+            selectedIcon: const Icon(Icons.search_off),
+            onPressed: _toggleSearch,
+          ),
+          IconButton(
             tooltip: _showFilters ? 'Ocultar filtros' : 'Mostrar filtros',
             isSelected: _showFilters,
             icon: Badge(
@@ -61,6 +92,11 @@ class _MovementsPageState extends ConsumerState<MovementsPage> {
             ),
             onPressed: () => setState(() => _showFilters = !_showFilters),
           ),
+          IconButton(
+            tooltip: 'Lixeira',
+            icon: const Icon(Icons.restore_from_trash_outlined),
+            onPressed: () => context.push('/movements/trash'),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -70,6 +106,46 @@ class _MovementsPageState extends ConsumerState<MovementsPage> {
       ),
       body: Column(
         children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: _showSearch
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      0,
+                    ),
+                    child: TextField(
+                      key: const Key('movement-search'),
+                      controller: _searchController,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        hintText: 'Descrição, notas, categoria ou conta',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: filter.hasQuery
+                            ? IconButton(
+                                tooltip: 'Limpar pesquisa',
+                                icon: const Icon(Icons.close),
+                                onPressed: _clearSearch,
+                              )
+                            : null,
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        controller.setQuery(value);
+                        setState(() {});
+                      },
+                      onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                      onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,
@@ -84,7 +160,11 @@ class _MovementsPageState extends ConsumerState<MovementsPage> {
                     onCategoryChanged: controller.setCategory,
                     onRangePicked: (range) =>
                         controller.setRange(range?.start, range?.end),
-                    onClear: controller.clear,
+                    onClear: () {
+                      controller.clear();
+                      _searchController.clear();
+                      setState(() {});
+                    },
                   )
                 : const SizedBox(width: double.infinity),
           ),
@@ -95,11 +175,20 @@ class _MovementsPageState extends ConsumerState<MovementsPage> {
           Expanded(
             child: switch (result) {
               AsyncData(:final value) when value.items.isEmpty =>
-                const EmptyState(
-                  icon: Icons.swap_vert,
-                  title: 'Sem movimentos',
-                  message: 'Ajusta os filtros ou registra um novo movimento.',
-                ),
+                filter.hasQuery
+                    ? const EmptyState(
+                        icon: Icons.search_off,
+                        title: 'Sem resultados',
+                        message:
+                            'Nenhum movimento corresponde à pesquisa. '
+                            'Tenta outra palavra ou limpa a pesquisa.',
+                      )
+                    : const EmptyState(
+                        icon: Icons.swap_vert,
+                        title: 'Sem movimentos',
+                        message:
+                            'Ajusta os filtros ou registra um novo movimento.',
+                      ),
               AsyncData(:final value) => _GroupedMovementsList(
                 items: value.items,
                 onEdit: (item) =>
@@ -134,10 +223,10 @@ class _MovementsPageState extends ConsumerState<MovementsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Eliminar movimento?'),
+        title: const Text('Mover para a lixeira?'),
         content: const Text(
-          'O movimento deixa de contar para saldos e relatórios. '
-          'A operação não pode ser desfeita na interface.',
+          'O movimento deixa de contar para saldos e relatórios, mas fica na '
+          'lixeira e pode ser restaurado.',
         ),
         actions: [
           TextButton(
@@ -146,7 +235,7 @@ class _MovementsPageState extends ConsumerState<MovementsPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Eliminar'),
+            child: const Text('Mover para a lixeira'),
           ),
         ],
       ),
@@ -158,7 +247,7 @@ class _MovementsPageState extends ConsumerState<MovementsPage> {
       await ref.read(transactionRepositoryProvider).softDelete(movement.id);
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Movimento eliminado. Saldos atualizados.'),
+          content: Text('Movimento movido para a lixeira. Saldos atualizados.'),
         ),
       );
     } on AppFailure catch (failure) {
@@ -637,6 +726,7 @@ class _MovementTile extends StatelessWidget {
               ),
             ),
             PopupMenuButton<String>(
+              key: Key('movement-menu-${movement.id}'),
               tooltip: 'Opções',
               icon: Icon(
                 Icons.more_vert,
@@ -654,7 +744,10 @@ class _MovementTile extends StatelessWidget {
               },
               itemBuilder: (context) => const [
                 PopupMenuItem(value: 'edit', child: Text('Editar')),
-                PopupMenuItem(value: 'delete', child: Text('Eliminar')),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text('Mover para a lixeira'),
+                ),
               ],
             ),
           ],

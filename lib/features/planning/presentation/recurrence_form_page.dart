@@ -34,7 +34,11 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
   DateTime? _endDate;
   String? _accountId;
   String? _categoryId;
-  bool _lockedStructure = false;
+  bool _hasOccurrences = false;
+  String? _initialKind;
+  String? _initialFrequency;
+  String? _initialStartDate;
+  String? _initialEndDate;
   bool _loading = false;
   bool _saving = false;
   Map<String, String> _errors = const {};
@@ -83,7 +87,13 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
       _categoryId = rule.categoryId;
       _amountController.text = MoneyInputParser.formatPlain(rule.amount);
       _descriptionController.text = rule.description;
-      _lockedStructure = occurrences > 0;
+      _hasOccurrences = occurrences > 0;
+      _initialKind = rule.kind.dbValue;
+      _initialFrequency = rule.frequency.dbValue;
+      _initialStartDate = FinancialDate.fromDateTime(rule.startDate);
+      _initialEndDate = rule.endDate == null
+          ? null
+          : FinancialDate.fromDateTime(rule.endDate!);
       _loading = false;
     });
   }
@@ -147,6 +157,42 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
     if (errors.isNotEmpty) {
       setState(() => _errors = errors);
       return;
+    }
+
+    final currentEnd = _endDate == null
+        ? null
+        : FinancialDate.fromDateTime(_endDate!);
+    final structureChanged =
+        _isEditing &&
+        (_initialKind != _kind.dbValue ||
+            _initialFrequency != _frequency.dbValue ||
+            _initialStartDate != FinancialDate.fromDateTime(_startDate) ||
+            _initialEndDate != currentEnd);
+    if (structureChanged && _hasOccurrences) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Reconstruir ocorrências futuras?'),
+          content: const Text(
+            'As ocorrências futuras ainda sem pagamentos são substituídas '
+            'pela nova regra. As ocorrências passadas e as que já têm '
+            'pagamentos mantêm-se.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Reconstruir'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) {
+        return;
+      }
     }
 
     final messenger = ScaffoldMessenger.of(context);
@@ -226,13 +272,11 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
                       ChoiceChip(
                         label: Text(kind.label),
                         selected: _kind == kind,
-                        onSelected: _lockedStructure
-                            ? null
-                            : (selected) {
-                                if (selected) {
-                                  _changeKind(kind);
-                                }
-                              },
+                        onSelected: (selected) {
+                          if (selected) {
+                            _changeKind(kind);
+                          }
+                        },
                       ),
                   ],
                 ),
@@ -258,23 +302,22 @@ class _RecurrenceFormPageState extends ConsumerState<RecurrenceFormPage> {
                         child: Text(frequency.label),
                       ),
                   ],
-                  onChanged: _lockedStructure
-                      ? (_) {}
-                      : (frequency) => setState(
-                          () => _frequency =
-                              frequency ?? RecurrenceFrequency.monthly,
-                        ),
+                  onChanged: (frequency) => setState(
+                    () => _frequency = frequency ?? RecurrenceFrequency.monthly,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 InkWell(
-                  onTap: _lockedStructure ? null : _pickStart,
+                  onTap: _pickStart,
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: 'Início',
                       suffixIcon: const Icon(Icons.calendar_today_outlined),
-                      helperText: _lockedStructure
-                          ? 'Já existem ocorrências geradas; o início e a '
-                                'frequência não podem ser alterados.'
+                      helperMaxLines: 3,
+                      helperText: _hasOccurrences
+                          ? 'Alterar tipo, frequência, início ou fim '
+                                'reconstrói as ocorrências futuras sem '
+                                'pagamentos; as passadas mantêm-se.'
                           : null,
                     ),
                     child: Text(formatDate(_startDate)),

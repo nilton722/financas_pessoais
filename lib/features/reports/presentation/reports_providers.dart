@@ -5,6 +5,7 @@ import '../../../core/formatters/date_formatter.dart';
 import '../../transactions/domain/movement.dart';
 import '../../transactions/presentation/transactions_providers.dart';
 import '../data/report_export_service.dart';
+import '../data/report_file_saver.dart';
 import '../domain/report.dart';
 
 enum ReportPreset {
@@ -120,4 +121,8 @@ final reportDataProvider = FutureProvider<ReportData>((ref) async {
 
 final reportExportServiceProvider = Provider<ReportExportService>(
   (ref) => ReportExportService(ref.watch(appFilesProvider)),
+);
+
+final reportFileSaverProvider = Provider<ReportFileSaver>(
+  (ref) => saveReportFile,
 );

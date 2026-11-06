@@ -13,14 +13,21 @@ proteção nesta versão.
 - Não usa analytics, anúncios, telemetria, rastreio nem relatórios de falhas
   externos.
 - Os dados financeiros nunca são transmitidos pela aplicação.
+- O backup automático do Android está desativado (`android:allowBackup="false"`):
+  o sistema não copia a base SQLite nem as preferências para a conta Google.
+  Alguns fabricantes podem manter a migração direta entre telefones durante a
+  configuração; essa cópia é feita pelo sistema e não pode ser impedida pela
+  app.
 
-Flutter, Drift/SQLite e `path_provider` são bibliotecas locais; não enviam dados
-por si. O utilizador pode, por ação própria, copiar backups ou exportações para
-fora do dispositivo. O botão **Guardar backup em…** abre o seletor de gravação
-do sistema; se o utilizador escolher um serviço de nuvem (Google Drive,
-OneDrive, etc.), é esse serviço, com a conta e as regras do utilizador, que
-recebe e sincroniza o ficheiro. A aplicação não tem permissão `INTERNET` no
-release e não participa nessa transferência.
+Flutter, Drift/SQLite, `path_provider` e `cryptography` são bibliotecas locais;
+não enviam dados por si. O `cryptography` executa o PBKDF2 e o AES-256-GCM em
+Dart dentro da aplicação, sem chamadas de rede. O utilizador pode, por ação
+própria, copiar backups ou exportações para fora do dispositivo. Os botões
+**Guardar backup em…** e **Guardar CSV em…** abrem o seletor de gravação do
+sistema; se o utilizador escolher um serviço de nuvem (Google Drive, OneDrive,
+etc.), é esse serviço, com a conta e as regras do utilizador, que recebe e
+sincroniza o ficheiro. A aplicação não tem permissão `INTERNET` no release e
+não participa nessa transferência.
 
 ## O que é guardado
 
@@ -30,19 +37,32 @@ release e não participa nessa transferência.
 - A preferência de bloqueio ao abrir (`lock_on_open`). É apenas um valor
   booleano: a aplicação não guarda PIN, padrão, palavra-passe nem dados
   biométricos.
+- A preferência de lembretes (`reminders_enabled` e `reminder_time`) e as
+  notificações pendentes agendadas no sistema. O sistema guarda o identificador,
+  a data/hora e o texto do aviso (descrição, montante e conta) até o entregar ou
+  ser cancelado.
 - Timestamps técnicos de criação e atualização.
+- A frase-passe dos backups **não é guardada**. Existe apenas nos campos da
+  janela de criação/abertura, em memória, e não é escrita na base, nas
+  preferências nem no ficheiro. Num backup cifrado ficam apenas o sal, o nonce,
+  o número de iterações e o conteúdo cifrado.
 - Não são guardadas credenciais bancárias, números de cartão, contactos,
   localização, microfone, câmara nem identificadores de publicidade.
 
 ## Permissões móveis
 
 O manifesto principal (`android/app/src/main/AndroidManifest.xml`) declara
-apenas a permissão normal `USE_BIOMETRIC`, necessária para pedir ao sistema o
-desbloqueio do telefone. Não é uma permissão de dados: a aplicação não recebe
-biometria nem credenciais, apenas o resultado da verificação feita pelo
+apenas permissões normais e de execução necessárias às funções locais:
+`USE_BIOMETRIC`, para pedir ao sistema o desbloqueio do telefone;
+`POST_NOTIFICATIONS`, pedida só ao ativar os lembretes; e
+`RECEIVE_BOOT_COMPLETED`, para o sistema voltar a agendar os lembretes depois de
+reiniciar o telefone. Os plugins acrescentam, na fusão do manifesto,
+`VIBRATE` (vibração das notificações) e a permissão legada `USE_FINGERPRINT`,
+sinónimo antigo de `USE_BIOMETRIC`; nenhuma destas recebe dados. A aplicação não
+recebe biometria nem credenciais, apenas o resultado da verificação feita pelo
 Android/iOS. Não são declaradas permissões de armazenamento, localização,
-contactos ou câmara. As variantes `debug` e `profile` acrescentam apenas
-`INTERNET`, exigida pelo Flutter para hot reload e depuração; a variante
+contactos, câmara ou microfone. As variantes `debug` e `profile` acrescentam
+apenas `INTERNET`, exigida pelo Flutter para hot reload e depuração; a variante
 **release** não a inclui. Os backups e exportações são escritos na pasta externa
 específica da aplicação (`Android/data/<pacote>/files`), que não exige permissão
 e é removida com a desinstalação. A exportação é sempre iniciada pelo
@@ -50,21 +70,34 @@ utilizador.
 
 A importação de backups usa o seletor de documentos do sistema (Storage Access
 Framework no Android, `UIDocumentPicker` no iOS) através do plugin oficial
-`file_selector`. A gravação de backups fora da pasta usa o mesmo mecanismo
-(`ACTION_CREATE_DOCUMENT` no Android) através do `file_picker`. Em ambos os
-casos, o utilizador autoriza apenas o ficheiro escolhido; a aplicação não
-recebe acesso a pastas nem pede permissões de armazenamento, e nenhum dos
-plugins faz chamadas de rede.
+`file_selector`. A gravação de backups e de relatórios fora da pasta usa o
+mesmo mecanismo (`ACTION_CREATE_DOCUMENT` no Android) através do `file_picker`.
+Em todos os casos, o utilizador autoriza apenas o ficheiro escolhido; a
+aplicação não recebe acesso a pastas nem pede permissões de armazenamento, e
+nenhum dos plugins faz chamadas de rede.
+
+Os lembretes usam `flutter_local_notifications` e a base de fusos `timezone`
+para agendar avisos no próprio aparelho. Não há serviço de push nem ligação de
+rede. O Android guarda as notificações pendentes no AlarmManager e pode mostrar
+o título e o corpo no ecrã de bloqueio; a aplicação marca-as como privadas no
+Android, mas as pré-visualizações são controladas pelas definições do sistema.
+No iOS, a permissão e as pré-visualizações seguem as definições do utilizador.
 
 ## Proteção local e limitações
 
-- A base SQLite, os backups e as exportações **não são cifrados**. Quem tiver
-  acesso físico aos ficheiros (por exemplo, num dispositivo desbloqueado ou com
-  root) consegue lê-los.
-- Um backup guardado num serviço de nuvem fica legível para quem tiver acesso a
-  esse ficheiro na conta do fornecedor. A escolha do destino e a proteção da
-  conta são responsabilidade do utilizador; a aplicação não controla retenção,
-  versões nem sincronização do fornecedor.
+- A base SQLite e as exportações CSV **não são cifradas**. Quem tiver acesso
+  físico aos ficheiros (por exemplo, num dispositivo desbloqueado ou com root)
+  consegue lê-los.
+- Os backups podem ser **cifrados com frase-passe** (AES-256-GCM, chave derivada
+  por PBKDF2-HMAC-SHA256 com sal aleatório) ou simples e legíveis. As cópias
+  automáticas `pre-restore-…json` são simples e ficam na pasta privada da
+  aplicação. A frase-passe não é guardada e não existe recuperação se for
+  esquecida.
+- Um backup **simples** guardado num serviço de nuvem fica legível para quem
+  tiver acesso a esse ficheiro na conta. Um backup cifrado não é legível sem a
+  frase-passe, mas o fornecedor continua a ver nome, tamanho e datas. A escolha
+  do destino e a proteção da conta são responsabilidade do utilizador; a
+  aplicação não controla retenção, versões nem sincronização do fornecedor.
 - O bloqueio ao abrir é **opcional** e usa o PIN, padrão, palavra-passe ou
   biometria do telefone através das APIs do sistema (`local_auth`). É uma
   barreira de interface: impede ver a aplicação sem desbloquear o telefone, mas
@@ -76,8 +109,18 @@ plugins faz chamadas de rede.
   situação e permite abrir sem bloqueio, para não ficar inacessível.
 - A proteção disponível continua a ser o bloqueio do sistema (PIN, padrão,
   biometria do Android) e a guarda das cópias fora do dispositivo.
-- O checksum dos backups deteta corrupção acidental, não é uma assinatura
-  criptográfica e não impede uma edição intencional.
+- O checksum dos backups simples deteta corrupção acidental, não é uma
+  assinatura criptográfica e não impede uma edição intencional. Nos backups
+  cifrados, o AES-GCM autentica o conteúdo e o cabeçalho; uma alteração impede
+  a abertura, mas não identifica o autor.
+- A resistência da frase-passe depende da sua qualidade. Um atacante com o
+  ficheiro pode tentar frases offline; use uma frase longa e única. Durante a
+  criação ou o restauro, o JSON decifrado existe temporariamente na memória da
+  aplicação.
+- Os lembretes revelam descrição, montante e conta no texto da notificação. O
+  conteúdo pode aparecer no ecrã de bloqueio e em notificações do sistema;
+  desligue as pré-visualizações ou os lembretes se essa exposição não for
+  aceitável.
 
 ## Logs e mensagens
 

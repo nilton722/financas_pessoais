@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:financas_pessoais/core/backup/backup_crypto.dart';
 import 'package:financas_pessoais/core/backup/backup_format.dart';
 import 'package:financas_pessoais/core/backup/backup_service.dart';
 import 'package:financas_pessoais/core/backup/backup_storage.dart';
@@ -265,6 +266,76 @@ void main() {
     expect(items.single.paidTotal, 1000);
     final settings = await AppSettingsRepository(targetDb).load();
     expect(settings.currencyCode, 'XOF');
+  });
+
+  test('backup cifrado exige a frase-passe e restaura noutra base', () async {
+    const passphrase = 'frase-segura-2026';
+    await seedData();
+    final created = await service.createBackup(
+      passphrase: passphrase,
+      now: DateTime.utc(2026, 10, 30, 12, 0),
+    );
+    expect(created.encrypted, isTrue);
+    expect(created.isValid, isTrue);
+
+    final contents = await storage.read(created.file);
+    expect(isEncryptedBackup(contents), isTrue);
+    expect(contents.contains('Mercado'), isFalse);
+
+    final listed = (await service.listBackups()).firstWhere(
+      (item) => item.file.fileName == created.file.fileName,
+    );
+    expect(listed.encrypted, isTrue);
+    expect(listed.isValid, isFalse);
+
+    await expectLater(service.restore(listed), throwsA(isA<AppFailure>()));
+    await expectLater(
+      service.restore(listed, passphrase: 'frase-errada-2026'),
+      throwsA(
+        isA<AppFailure>().having(
+          (failure) => failure.message,
+          'message',
+          contains('Frase-passe incorreta'),
+        ),
+      ),
+    );
+
+    final restoredDb = openMemoryDatabase();
+    addTearDown(restoredDb.close);
+    final outcome = await BackupService(
+      restoredDb,
+      storage,
+    ).restore(listed, passphrase: passphrase);
+    expect(outcome.snapshot.counts['transactions'], 3);
+    expect(File(outcome.safetyBackup.path).existsSync(), isTrue);
+
+    final settings = await AppSettingsRepository(restoredDb).load();
+    expect(settings.currencyCode, 'XOF');
+    final balances = await AccountRepository(restoredDb)
+        .readBalances(until: FinancialDate.today());
+    expect(balances.single.balance, 6000);
+  });
+
+  test('backup cifrado importado restaura com a frase-passe', () async {
+    const passphrase = 'frase-segura-2026';
+    await seedData();
+    final created = await service.createBackup(passphrase: passphrase);
+    final contents = await storage.read(created.file);
+
+    final targetDb = openMemoryDatabase();
+    addTearDown(targetDb.close);
+    final targetService = BackupService(targetDb, storage);
+
+    await expectLater(
+      targetService.restoreExternal(contents),
+      throwsA(isA<AppFailure>()),
+    );
+    final outcome = await targetService.restoreExternal(
+      contents,
+      passphrase: passphrase,
+    );
+    expect(outcome.snapshot.counts['accounts'], 1);
+    expect((await AppSettingsRepository(targetDb).load()).currencyCode, 'XOF');
   });
 
   test('ficheiro externo inválido não altera os dados atuais', () async {

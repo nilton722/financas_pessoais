@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:financas_pessoais/core/files/app_files.dart';
 import 'package:financas_pessoais/core/formatters/date_formatter.dart';
 import 'package:financas_pessoais/core/formatters/money_formatter.dart';
+import 'package:financas_pessoais/features/reports/data/report_csv.dart';
+import 'package:financas_pessoais/features/reports/presentation/reports_providers.dart';
 import 'package:financas_pessoais/features/transactions/data/transaction_repository.dart';
 import 'package:financas_pessoais/features/transactions/domain/movement.dart';
 import 'package:flutter/material.dart';
@@ -93,6 +95,109 @@ void main() {
     await disposeApp(tester);
   });
 
+  testWidgets('guarda o CSV no destino escolhido pelo sistema', (tester) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final root = createRoot();
+    final wallet = await createTestAccount(
+      db,
+      name: 'Carteira',
+      openingBalance: 50000,
+    );
+    final repository = TransactionRepository(db);
+    await repository.createMovement(
+      MovementDraft(
+        kind: MovementKind.income,
+        amount: 100000,
+        date: FinancialDate.today(),
+        accountId: wallet,
+        categoryId: seededSalaryCategoryId,
+        description: 'Salário de outubro',
+      ),
+    );
+    String? savedName;
+    String? savedContents;
+
+    await pumpApp(
+      tester,
+      db,
+      filesRoot: () async => root,
+      overrides: [
+        reportFileSaverProvider.overrideWithValue(({
+          required String fileName,
+          required String contents,
+        }) async {
+          savedName = fileName;
+          savedContents = contents;
+          return true;
+        }),
+      ],
+    );
+
+    await tapVisible(tester, find.byKey(const Key('dashboard-reports')));
+    await tester.tap(find.byKey(const Key('report-save-to')));
+    await pumpDisk(tester, find.textContaining('Relatório guardado'));
+
+    expect(savedName, startsWith('relatorio-'));
+    expect(savedName, endsWith('.csv'));
+    expect(savedContents, startsWith(ReportCsv.bom));
+    expect(savedContents, contains('Salário de outubro'));
+    expect(find.textContaining('Relatório guardado'), findsOneWidget);
+
+    final exports = Directory(
+      '${root.path}${Platform.pathSeparator}${AppFiles.exportsFolder}',
+    ).listSync().whereType<File>().toList();
+    expect(exports, hasLength(1));
+
+    await disposeApp(tester);
+  });
+
+  testWidgets('cancelar a gravação do CSV mantém a cópia local', (
+    tester,
+  ) async {
+    final db = openMemoryDatabase();
+    addTearDown(db.close);
+    final root = createRoot();
+    final wallet = await createTestAccount(
+      db,
+      name: 'Carteira',
+      openingBalance: 50000,
+    );
+    final repository = TransactionRepository(db);
+    await repository.createMovement(
+      MovementDraft(
+        kind: MovementKind.expense,
+        amount: 12000,
+        date: FinancialDate.today(),
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+        description: 'Mercado',
+      ),
+    );
+
+    await pumpApp(
+      tester,
+      db,
+      filesRoot: () async => root,
+      overrides: [
+        reportFileSaverProvider.overrideWithValue(
+          ({required String fileName, required String contents}) async => false,
+        ),
+      ],
+    );
+
+    await tapVisible(tester, find.byKey(const Key('dashboard-reports')));
+    await tester.tap(find.byKey(const Key('report-save-to')));
+    await pumpDisk(tester, find.textContaining('não foi guardado fora'));
+
+    final exports = Directory(
+      '${root.path}${Platform.pathSeparator}${AppFiles.exportsFolder}',
+    ).listSync().whereType<File>().toList();
+    expect(exports, hasLength(1));
+
+    await disposeApp(tester);
+  });
+
   testWidgets('período sem movimentos desativa a exportação', (tester) async {
     final db = openMemoryDatabase();
     addTearDown(db.close);
@@ -130,7 +235,8 @@ void main() {
     expect(find.widgetWithText(AppBar, 'Definições'), findsOneWidget);
     expect(find.byKey(const Key('settings-privacy')), findsOneWidget);
     expect(find.textContaining('não se liga à internet'), findsOneWidget);
-    expect(find.textContaining('não são cifrados'), findsOneWidget);
+    expect(find.textContaining('não são cifradas'), findsOneWidget);
+    expect(find.textContaining('cifrados com frase-passe'), findsOneWidget);
     expect(find.textContaining('barreira de interface'), findsOneWidget);
     expect(find.text('Onde estão os dados'), findsOneWidget);
     expect(find.text('Backup e restauração'), findsOneWidget);

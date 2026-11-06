@@ -37,6 +37,7 @@ quando é pago.
 | Perceber para onde foi o dinheiro | **Relatórios** | Agrupa o passado por categoria ou conta |
 | Guardar ou recuperar os dados | **Backup** | Cria ou repõe uma cópia completa |
 | Impedir a abertura por outra pessoa | **Bloqueio** | Pede as credenciais do telefone ao abrir |
+| Ser avisado sem abrir a app | **Lembretes** | Agenda notificações locais na véspera e no dia do vencimento |
 
 ## Painel
 
@@ -128,10 +129,15 @@ um compromisso ou uma recorrência.
    são opcionais.
 4. Guarde.
 
-Na lista, o ícone de filtros no topo abre ou fecha os campos de tipo, conta,
-categoria e período; o ícone mostra um ponto quando há filtros ativos. Toque
-num movimento para editar; no menu, elimine com confirmação. A eliminação é
-lógica: o movimento sai dos saldos e relatórios, mas fica registado na base.
+Na lista, o ícone de filtros abre ou fecha os campos de tipo, conta, categoria
+e período, e mostra um ponto quando há filtros ativos. O ícone de pesquisa
+abre um campo que procura em descrição, notas, categoria e nomes das contas.
+Toque num movimento para editar; no menu, **Mover para a lixeira** tira-o dos
+saldos e relatórios sem o apagar. O ícone de lixeira no topo abre os
+movimentos eliminados, onde pode **Restaurar** ou **Eliminar
+definitivamente**. Restaurar devolve o movimento aos saldos; se ele pagava um
+compromisso ou dívida, a ligação é reposta, desde que outro movimento não
+tenha entretanto ocupado esse valor.
 
 **O que muda nos números.**
 
@@ -146,9 +152,10 @@ lógica: o movimento sai dos saldos e relatórios, mas fica registado na base.
 - O tipo não pode ser alterado depois de guardado; elimine e recrie se for
   mesmo necessário.
 - Se o movimento estiver ligado ao pagamento de um compromisso ou de uma
-  dívida, eliminá-lo reabre esse pagamento e recalcula o pendente. É assim que
-  se corrige um pagamento feito por engano. Ao editá-lo, o novo montante não
-  pode exceder o valor do compromisso ou da dívida.
+  dívida, movê-lo para a lixeira reabre esse pagamento e recalcula o pendente;
+  restaurá-lo volta a fechá-lo. É assim que se corrige um pagamento feito por
+  engano. Ao editá-lo, o novo montante não pode exceder o valor do compromisso
+  ou da dívida.
 - Não registe um movimento manual para um pagamento que já fez pelo botão
   **Pagar** de um compromisso ou dívida: isso duplicaria o dinheiro.
 
@@ -231,10 +238,14 @@ real: só alteram o saldo quando cada uma é paga. Uma recorrência mensal ou
 anual ajusta o dia ao último dia do mês quando esse dia não existe (por
 exemplo, dia 31 num mês de 30 dias).
 
-**Cuidados.** Uma recorrência não paga sozinha. Depois de existirem
-ocorrências, o tipo, o início e a frequência ficam bloqueados; pode alterar
-valor, descrição, fim, conta e categoria. Não é possível eliminar a regra; só
-pausar.
+**Cuidados.** Uma recorrência não paga sozinha. Pode editar o tipo, a
+frequência, o início e o fim mesmo depois de existirem ocorrências: a app
+pede confirmação e reconstrói apenas as ocorrências **futuras ainda sem
+pagamentos**. As ocorrências passadas e as que já receberam algum pagamento
+mantêm-se intactas. Se existirem ocorrências futuras pagas, a alteração é
+recusada até as reverter. Alterar só o valor ou a descrição atualiza as
+ocorrências pendentes e as próximas gerações. Não é possível eliminar a
+regra; só pausar.
 
 ## Orçamentos
 
@@ -368,18 +379,22 @@ serve para exportar os movimentos em CSV.
 2. Escolha o período: **Este mês**, **Mês anterior**, **Últimos 3 meses** ou
    **Personalizado**.
 3. Alterne o agrupamento entre **Categoria** e **Conta**.
-4. Se houver movimentos no período, use **Exportar CSV**.
+4. Se houver movimentos no período, use **Exportar CSV** (cópia na pasta da
+   app) ou **Guardar CSV em…** (escolher Downloads, Drive ou outro destino).
 
 **O que mostra.**
 
 - Rendimentos, despesas e resultado (rendimentos menos despesas) do período.
 - As transferências aparecem à parte e não entram no resultado.
 - O CSV é UTF-8 com BOM, separador `;`, datas `DD/MM/AAAA` e colunas de data,
-  tipo, descrição, categoria, conta, conta de destino, montante e notas. Fica
-  na pasta de exportações; a app mostra o caminho e permite copiá-lo.
+  tipo, descrição, categoria, conta, conta de destino, montante e notas.
+  **Exportar CSV** grava na pasta de exportações; **Guardar CSV em…** grava
+  também no destino escolhido no seletor do sistema. A app mostra o caminho e
+  permite copiá-lo.
 
 **Cuidados.** Os relatórios são de leitura: não alteram dados. Sem movimentos
-no período, a exportação fica indisponível. Não existe exportação em PDF nesta
+no período, a exportação fica indisponível. A app não envia o CSV: se escolher
+um serviço de nuvem, é esse serviço que transfere o ficheiro. Não existe exportação em PDF nesta
 versão. A exportação CSV não substitui o backup: o backup é o único ficheiro
 que permite repor a app completa.
 
@@ -389,13 +404,16 @@ Estas ações parecem iguais, mas servem para coisas diferentes.
 
 | Ação | Quando usar | O que faz |
 |---|---|---|
-| **Criar backup agora** | Rotina, antes de atualizar, antes de mudar de telefone | Cria um JSON com todas as tabelas e configurações na pasta da app |
-| **Guardar backup em…** | Quer a cópia fora do telefone (Drive, Downloads, cartão SD) | Cria um backup e abre o seletor de gravação do sistema |
+| **Criar backup agora** | Rotina, antes de atualizar, antes de mudar de telefone | Cria um JSON cifrado ou simples com todas as tabelas e configurações na pasta da app |
+| **Guardar backup em…** | Quer a cópia fora do telefone (Drive, Downloads, cartão SD) | Cria um backup (cifrado ou simples) e abre o seletor de gravação do sistema |
 | **Restaurar** | Voltar atrás ou repor num telefone onde o ficheiro já está na lista | Valida, cria uma cópia `pre-restore` e substitui toda a base |
 | **Importar de um ficheiro** | O backup está fora da app (Drive, Downloads, cartão SD, outro telefone) | Abre o seletor do sistema, valida e restaura o ficheiro escolhido |
 
-**Como criar.** **Definições → Backup e restauração → Criar backup agora.** A
-lista mostra data, número de registos, tamanho e integridade.
+**Como criar.** **Definições → Backup e restauração → Criar backup agora.**
+Escolha **Cifrado** (recomendado) ou **Sem cifra**. No modo cifrado, defina uma
+frase-passe com pelo menos 8 caracteres e repita-a. A frase não é guardada e,
+se for esquecida, o backup não pode ser aberto. A lista mostra data, número de
+registos, tamanho e integridade; os cifrados aparecem com um cadeado.
 
 **Como guardar fora.** **Guardar backup em…** cria um backup novo e abre logo o
 seletor do sistema com o nome preenchido. Escolha Downloads, Google Drive,
@@ -403,26 +421,30 @@ OneDrive, um cartão SD ou outro destino. A app não acede à rede: se escolher
 uma nuvem, é a aplicação desse fornecedor que transfere o ficheiro, com a sua
 conta. Cancelar o seletor mantém apenas a cópia local.
 
-**Como restaurar.** Toque no backup da lista, confirme a pré-visualização e
-**Restaurar**, depois **Substituir dados**. Antes de substituir, a app cria
-automaticamente uma cópia da base atual (`pre-restore-…json`). O restauro corre
-numa única transação; se falhar, a base atual fica intacta.
+**Como restaurar.** Toque no backup da lista. Se estiver cifrado, escreva a
+frase-passe; uma frase errada mostra um aviso e permite tentar outra vez. Depois
+confirme a pré-visualização e **Restaurar**, depois **Substituir dados**. Antes
+de substituir, a app cria automaticamente uma cópia da base atual
+(`pre-restore-…json`). O restauro corre numa única transação; se falhar, a base
+atual fica intacta.
 
 **Como importar.** **Importar de um ficheiro** e escolha o ficheiro no seletor
-do sistema. Não são pedidas permissões de armazenamento. O ficheiro é validado
-e restaurado com as mesmas regras do restauro local.
+do sistema. Não são pedidas permissões de armazenamento. Se o backup estiver
+cifrado, é pedida a frase-passe. O ficheiro é validado e restaurado com as
+mesmas regras do restauro local.
 
 **Como recuperar num telefone novo.** Instale a app, abra-a uma vez e use
 **Importar de um ficheiro** para escolher o backup que guardou no Drive ou em
 Downloads. Não precisa de copiar o ficheiro para a pasta da app.
 
 **O que muda.** O restauro **substitui** todos os dados; não funde backups.
-Configurações como o bloqueio ao abrir também são repostas. O checksum deteta
-corrupção acidental, mas o ficheiro não é cifrado nem assinado: um backup no
-Drive fica legível para quem tiver acesso a essa conta. Proteja a conta e
-guarde cópias em locais diferentes. Em Android 11 ou mais recente, a pasta da
-app fica oculta; use **Guardar backup em…** (ou `adb pull` para ficheiros já
-escritos nessa pasta).
+Configurações como o bloqueio ao abrir também são repostas. Um backup cifrado
+protege o conteúdo com AES-256-GCM e uma chave derivada da frase-passe; um
+backup simples fica legível e o checksum só deteta corrupção acidental. A cópia
+automática `pre-restore-…json` é sempre simples, porque fica na pasta privada da
+app ao lado da base. Proteja a conta, a frase-passe e as cópias. Em Android 11
+ou mais recente, a pasta da app fica oculta; use **Guardar backup em…** (ou
+`adb pull` para ficheiros já escritos nessa pasta).
 
 **Cuidados.** Um backup só no telefone perde-se ao desinstalar ou perder o
 aparelho. Faça cópias periódicas para fora. Se restaurar por engano, a cópia
@@ -443,19 +465,46 @@ remover as credenciais do telefone, a app explica a situação e oferece **Abrir
 sem bloqueio**.
 
 **O que muda.** Nada nos dados: o bloqueio é uma barreira de interface. A base
-SQLite, os backups e as exportações continuam sem cifra. Restaurar um backup
-criado com o bloqueio ligado volta a ativá-lo neste telefone, com as
-credenciais locais.
+SQLite e as exportações continuam sem cifra; os backups só ficam cifrados se
+escolher essa opção ao criá-los. Restaurar um backup criado com o bloqueio
+ligado volta a ativá-lo neste telefone, com as credenciais locais.
 
-**Cuidados.** O bloqueio não substitui o bloqueio do telefone nem cifra os
-ficheiros; não protege contra root ou acesso direto à base. Mantenha o
-dispositivo protegido e os backups em local seguro.
+**Cuidados.** O bloqueio não substitui o bloqueio do telefone nem cifra a base;
+não protege contra root ou acesso direto à base. Mantenha o dispositivo
+protegido, os backups cifrados e a frase-passe em local seguro.
+
+## Lembretes no telemóvel
+
+**Quando usar.** Se quer ser avisado de um vencimento sem ter a app aberta, ou
+receber um resumo quando um orçamento do mês foi excedido. É útil para contas
+fixas e para não deixar passar a data de pagamento.
+
+**Como usar.** **Definições → Lembretes**, ligue **Lembretes no telemóvel** e
+confirme a permissão de notificações. Toque em **Hora do lembrete** para
+escolher a hora (predefinição 09:00). A app agenda a véspera e o dia do
+vencimento de cada compromisso em aberto nos próximos 365 dias, com descrição,
+valor em falta e conta. Compromissos pagos, cancelados ou vencidos não geram
+avisos.
+
+**O que muda.** No último dia do mês é agendado um único resumo se houver
+orçamentos excedidos; tocar no aviso abre os orçamentos. Alterar compromissos,
+orçamentos ou a hora recria os mesmos avisos sem duplicar. Desligar o
+interruptor cancela os avisos pendentes.
+
+**Cuidados.** Sem rede: tudo é agendado no telefone. O sistema pode atrasar a
+entrega em poupança de energia e mostra o conteúdo no ecrã de bloqueio conforme
+as pré-visualizações configuradas. Se desativar as notificações da app no
+sistema, as definições mostram um aviso e nada é agendado até a permissão
+voltar. Um backup restaurado com lembretes ligados mantém a preferência, mas
+cada telefone tem de autorizar as notificações.
 
 ## Definições e privacidade
 
 - **Privacidade** explica que os dados ficam no dispositivo, sem internet,
   analytics ou telemetria.
 - **Moeda, idioma e fuso** são apenas de consulta nesta versão.
+- **Lembretes** ficam desligados até serem ativados; a permissão de
+  notificações é pedida apenas nesse momento.
 - **Caminhos** mostram onde ficam a base, os backups e as exportações.
 - **Sobre** mostra a versão e a identificação da app.
 - A versão de release não pede `INTERNET` nem permissões de armazenamento.

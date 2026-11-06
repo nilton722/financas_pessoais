@@ -275,7 +275,63 @@ void main() {
     expect(await balanceOf(wallet), 8000);
   });
 
-  test('não altera frequência depois de gerar ocorrências', () async {
+  test(
+    'alterar a frequência reconstrói apenas as ocorrências futuras',
+    () async {
+      final wallet = await createTestAccount(db);
+      final today = FinancialDate.today();
+      await planning.createRule(
+        RecurringRuleDraft(
+          kind: PlannedItemKind.expense,
+          amount: 1000,
+          frequency: RecurrenceFrequency.monthly,
+          startDate: today,
+          description: 'Renda',
+          accountId: wallet,
+          categoryId: seededFoodCategoryId,
+        ),
+      );
+      await planning.syncRecurrences(
+        horizon: today.add(const Duration(days: 90)),
+      );
+      expect(await planning.readItems(), isNotEmpty);
+
+      await planning.updateRule(
+        (await planning.readRules()).single.id,
+        RecurringRuleDraft(
+          kind: PlannedItemKind.expense,
+          amount: 1000,
+          frequency: RecurrenceFrequency.weekly,
+          startDate: today,
+          description: 'Renda',
+          accountId: wallet,
+          categoryId: seededFoodCategoryId,
+        ),
+      );
+      await planning.syncRecurrences(
+        horizon: today.add(const Duration(days: 21)),
+      );
+
+      final items = await planning.readItems();
+      final dates = items
+          .map((item) => FinancialDate.fromDateTime(item.dueDate))
+          .toSet();
+      expect(dates, {
+        FinancialDate.fromDateTime(today),
+        FinancialDate.fromDateTime(today.add(const Duration(days: 7))),
+        FinancialDate.fromDateTime(today.add(const Duration(days: 14))),
+        FinancialDate.fromDateTime(today.add(const Duration(days: 21))),
+      });
+      final rule = (await planning.readRules()).single;
+      expect(rule.frequency, RecurrenceFrequency.weekly);
+      expect(
+        FinancialDate.fromDateTime(rule.nextOccurrenceDate),
+        FinancialDate.fromDateTime(today.add(const Duration(days: 28))),
+      );
+    },
+  );
+
+  test('alterar o valor propaga-se às ocorrências pendentes', () async {
     final wallet = await createTestAccount(db);
     final today = FinancialDate.today();
     await planning.createRule(
@@ -289,7 +345,62 @@ void main() {
         categoryId: seededFoodCategoryId,
       ),
     );
-    await planning.syncRecurrences(horizon: today);
+    await planning.syncRecurrences(
+      horizon: today.add(const Duration(days: 90)),
+    );
+
+    await planning.updateRule(
+      (await planning.readRules()).single.id,
+      RecurringRuleDraft(
+        kind: PlannedItemKind.expense,
+        amount: 1750,
+        frequency: RecurrenceFrequency.monthly,
+        startDate: today,
+        description: 'Renda atualizada',
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+      ),
+    );
+
+    final items = await planning.readItems();
+    expect(items, hasLength(3));
+    expect(items.every((item) => item.amount == 1750), isTrue);
+    expect(
+      items.every((item) => item.description == 'Renda atualizada'),
+      isTrue,
+    );
+  });
+
+  test('não reconstrói ocorrências futuras que já têm pagamentos', () async {
+    final wallet = await createTestAccount(db, openingBalance: 10000);
+    final today = FinancialDate.today();
+    final nextMonth = RecurrenceFrequency.monthly.dateFor(today, 1);
+    await planning.createRule(
+      RecurringRuleDraft(
+        kind: PlannedItemKind.expense,
+        amount: 1000,
+        frequency: RecurrenceFrequency.monthly,
+        startDate: today,
+        description: 'Renda',
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+      ),
+    );
+    await planning.syncRecurrences(horizon: nextMonth);
+    final future = (await planning.readItems()).singleWhere(
+      (item) =>
+          FinancialDate.fromDateTime(item.dueDate) ==
+          FinancialDate.fromDateTime(nextMonth),
+    );
+    await planning.payItem(
+      future.id,
+      PaymentDraft(
+        amount: 1000,
+        date: today,
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+      ),
+    );
 
     await expectLater(
       planning.updateRule(

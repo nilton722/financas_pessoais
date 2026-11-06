@@ -22,12 +22,15 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Necessário para as notificações agendadas do flutter_local_notifications.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
     defaultConfig {
         applicationId = "ao.gb.financas_pessoais"
+        multiDexEnabled = true
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
@@ -69,6 +72,8 @@ kotlin {
 dependencies {
     // Tema AppCompat exigido pelo diálogo biométrico do local_auth.
     implementation("androidx.appcompat:appcompat:1.7.1")
+    // Compatibilidade das APIs de data/hora usadas pelos lembretes agendados.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

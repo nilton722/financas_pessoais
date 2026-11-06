@@ -20,8 +20,9 @@ Gestão empresarial/multiempresa; utilizadores partilhados; integração bancár
 - **Dívidas:** a pagar/a receber, valor original, saldo pendente e pagamentos reais.
 - **Painel:** saldos, rendimentos/despesas por período, orçamentos, próximos compromissos e previsão.
 - **Relatórios:** por período, categoria e conta; exportação CSV. PDF pode ficar para versão futura.
-- **Backup:** exportável e versionado; validar antes de restaurar; pedir confirmação e preservar dados atuais antes de substituição.
-- **Privacidade:** nenhum envio de dados na versão inicial; sem analytics/ads. PIN/biometria só com APIs seguras adequadas; bloqueio de UI não significa cifragem da base.
+- **Backup:** exportável e versionado; validar antes de restaurar; pedir confirmação e preservar dados atuais antes de substituição. Pode ser cifrado com frase-passe (AES-256-GCM, chave PBKDF2) ou simples; a leitura de backups simples anteriores é obrigatória e a frase-passe nunca é guardada.
+- **Lembretes:** notificações locais opcionais, sem rede, na véspera e no dia do vencimento de compromissos em aberto e um resumo mensal de orçamentos excedidos; permissão pedida apenas ao ativar.
+- **Privacidade:** nenhum envio de dados na versão inicial; sem analytics/ads. PIN/biometria só com APIs seguras adequadas; bloqueio de UI não significa cifragem da base. A cifra dos backups protege ficheiros exportados, não a base SQLite em uso.
 
 ## 4. Modelo SQLite
 IDs recomendados: UUID em `TEXT`, para facilitar eventual sincronização futura. Datas financeiras `YYYY-MM-DD`; timestamps ISO-8601 UTC. Montantes em inteiros FCFA.

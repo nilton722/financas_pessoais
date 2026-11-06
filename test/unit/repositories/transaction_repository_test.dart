@@ -292,4 +292,125 @@ void main() {
       );
     },
   );
+
+  test('pesquisa descrição, notas, categoria, conta e destino', () async {
+    final wallet = await createTestAccount(db, name: 'Carteira');
+    final savings = await createTestAccount(db, name: 'Poupança');
+    await transactions.createMovement(
+      MovementDraft(
+        kind: MovementKind.income,
+        amount: 2500,
+        date: FinancialDate.today(),
+        accountId: wallet,
+        categoryId: seededSalaryCategoryId,
+        description: 'Salário de outubro',
+        notes: 'Bónus trimestral',
+      ),
+    );
+    await transactions.createMovement(
+      MovementDraft(
+        kind: MovementKind.expense,
+        amount: 800,
+        date: FinancialDate.today(),
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+        description: 'Mercado',
+        notes: 'Feira semanal',
+      ),
+    );
+    await transactions.createTransfer(
+      TransferDraft(
+        sourceAccountId: wallet,
+        destinationAccountId: savings,
+        amount: 500,
+        date: FinancialDate.today(),
+        description: 'Reserva de emergência',
+      ),
+    );
+
+    Future<int> count(String query) async =>
+        (await transactions.readMovements(MovementFilter(query: query))).length;
+
+    expect(await count('salário'), 1);
+    expect(await count('bónus'), 1);
+    expect(await count('feira'), 1);
+    expect(await count('alimenta'), 1);
+    expect(await count('poupança'), 1);
+    expect(await count('carteira'), 3);
+    expect(await count('inexistente'), 0);
+    expect(await count('   '), 3);
+  });
+
+  test('pesquisa trata % e _ como caracteres literais', () async {
+    final wallet = await createTestAccount(db);
+    await transactions.createMovement(
+      MovementDraft(
+        kind: MovementKind.expense,
+        amount: 100,
+        date: FinancialDate.today(),
+        accountId: wallet,
+        categoryId: seededFoodCategoryId,
+        description: 'Desconto 50%',
+        notes: 'Código A_B',
+      ),
+    );
+
+    Future<int> count(String query) async =>
+        (await transactions.readMovements(MovementFilter(query: query))).length;
+
+    expect(await count('%'), 1);
+    expect(await count('_'), 1);
+    expect(await count('50%'), 1);
+    expect(await count('A_B'), 1);
+  });
+
+  test('lixeira lista, restaura e elimina definitivamente', () async {
+    final wallet = await createTestAccount(db, openingBalance: 5000);
+    final movementId = await transactions.createMovement(
+      incomeDraft(accountId: wallet),
+    );
+    expect(await balanceOf(wallet), 6000);
+
+    await transactions.softDelete(movementId);
+
+    expect(await transactions.readMovements(const MovementFilter()), isEmpty);
+    final deleted = await transactions.watchDeletedMovements().first;
+    expect(deleted.single.movement.id, movementId);
+    expect(await balanceOf(wallet), 5000);
+
+    await transactions.restore(movementId);
+
+    expect(
+      (await transactions.readMovements(const MovementFilter()))
+          .single
+          .movement
+          .id,
+      movementId,
+    );
+    expect(await transactions.watchDeletedMovements().first, isEmpty);
+    expect(await balanceOf(wallet), 6000);
+
+    await transactions.softDelete(movementId);
+    await transactions.deletePermanently(movementId);
+
+    expect(await transactions.watchDeletedMovements().first, isEmpty);
+    expect(await transactions.findById(movementId), isNull);
+    expect(await balanceOf(wallet), 5000);
+  });
+
+  test(
+    'eliminação definitiva exige que o movimento esteja na lixeira',
+    () async {
+      final wallet = await createTestAccount(db);
+      final movementId = await transactions.createMovement(
+        incomeDraft(accountId: wallet),
+      );
+
+      await expectLater(
+        transactions.deletePermanently(movementId),
+        throwsA(isA<AppFailure>()),
+      );
+      expect(await transactions.findById(movementId), isNotNull);
+    },
+  );
 }

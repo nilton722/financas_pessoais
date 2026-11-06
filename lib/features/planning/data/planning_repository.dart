@@ -405,41 +405,186 @@ ORDER BY r.is_active DESC, r.next_occurrence_date ASC, r.created_at ASC
     return id;
   }
 
+  /// Editar a estrutura (tipo, frequência, início ou fim) reconstrói apenas
+  /// as ocorrências futuras ainda sem pagamentos: as passadas e as que já
+  /// receberam algum pagamento ficam intactas. Alterações de valor,
+  /// descrição e referências propagam-se às ocorrências futuras planeadas,
+  /// para que a próxima geração e os compromissos já criados fiquem
+  /// coerentes com a regra.
   Future<void> updateRule(String id, RecurringRuleDraft draft) async {
     _ensureValid(draft.validate());
-    final existing = await _requireRuleRow(id);
-    final occurrences = await _occurrenceCount(id);
-    final startChanged =
-        FinancialDate.fromDateTime(draft.startDate) != existing.startDate;
-    final frequencyChanged = draft.frequency.dbValue != existing.frequency;
-    final kindChanged = draft.kind.dbValue != existing.kind;
-    if (occurrences > 0 && (startChanged || frequencyChanged || kindChanged)) {
-      throw const AppFailure(
-        'Já existem ocorrências geradas; só o valor, a descrição e as '
-        'referências podem ser alterados.',
+    await _db.transaction(() async {
+      final existing = await _requireRuleRow(id);
+      final startChanged =
+          FinancialDate.fromDateTime(draft.startDate) != existing.startDate;
+      final frequencyChanged = draft.frequency.dbValue != existing.frequency;
+      final kindChanged = draft.kind.dbValue != existing.kind;
+      final endChanged = _dateOrNull(draft.endDate) != existing.endDate;
+      final structureChanged =
+          startChanged || frequencyChanged || kindChanged || endChanged;
+      await _validateRefs(
+        kind: draft.kind,
+        accountId: draft.accountId,
+        categoryId: draft.categoryId,
       );
+
+      final today = FinancialDate.today();
+      final futureToRebuild = await _futureOccurrences(
+        id,
+        today.add(const Duration(days: 1)),
+      );
+      if (structureChanged) {
+        for (final occurrence in futureToRebuild) {
+          if (occurrence.isCancelled) {
+            continue;
+          }
+          final item = await _findPlannedItemRow(occurrence.plannedItemId);
+          if (item == null) {
+            continue;
+          }
+          final paid = await _paidTotal(item.id);
+          if (item.status == PlannedItemStatus.paid.dbValue ||
+              item.status == PlannedItemStatus.partiallyPaid.dbValue ||
+              paid > 0) {
+            throw const AppFailure(
+              'Existem ocorrências futuras com pagamentos. Conclui ou '
+              'reverte esses pagamentos antes de alterar o tipo, a '
+              'frequência, o início ou o fim.',
+            );
+          }
+        }
+        for (final occurrence in futureToRebuild) {
+          if (occurrence.isCancelled) {
+            continue;
+          }
+          await (_db.delete(
+            _db.recurringOccurrences,
+          )..where((t) => t.id.equals(occurrence.occurrenceId))).go();
+          if (occurrence.plannedItemId != null) {
+            await (_db.delete(
+              _db.plannedItems,
+            )..where((t) => t.id.equals(occurrence.plannedItemId!))).go();
+          }
+        }
+      }
+
+      final nextOccurrence = structureChanged
+          ? await _firstAvailableOccurrence(
+              id: id,
+              frequency: draft.frequency,
+              startDate: draft.startDate,
+              endDate: draft.endDate,
+              notBefore: today,
+            )
+          : null;
+      await (_db.update(
+        _db.recurringRules,
+      )..where((t) => t.id.equals(id))).write(
+        db.RecurringRulesCompanion(
+          kind: Value(draft.kind.dbValue),
+          accountId: Value(_nullIfBlank(draft.accountId)),
+          categoryId: Value(_nullIfBlank(draft.categoryId)),
+          amount: Value(draft.amount),
+          frequency: Value(draft.frequency.dbValue),
+          startDate: Value(FinancialDate.fromDateTime(draft.startDate)),
+          endDate: Value(_dateOrNull(draft.endDate)),
+          nextOccurrenceDate: nextOccurrence == null
+              ? const Value.absent()
+              : Value(FinancialDate.fromDateTime(nextOccurrence)),
+          description: Value(draft.description.trim()),
+          updatedAt: Value(utcNowIsoString()),
+        ),
+      );
+
+      if (!structureChanged) {
+        final pending = await _futureOccurrences(id, today);
+        for (final occurrence in pending) {
+          if (occurrence.isCancelled || occurrence.plannedItemId == null) {
+            continue;
+          }
+          final item = await _findPlannedItemRow(occurrence.plannedItemId!);
+          if (item == null ||
+              item.status != PlannedItemStatus.planned.dbValue) {
+            continue;
+          }
+          await (_db.update(
+            _db.plannedItems,
+          )..where((t) => t.id.equals(item.id))).write(
+            db.PlannedItemsCompanion(
+              kind: Value(draft.kind.dbValue),
+              accountId: Value(_nullIfBlank(draft.accountId)),
+              categoryId: Value(_nullIfBlank(draft.categoryId)),
+              amount: Value(draft.amount),
+              description: Value(draft.description.trim()),
+              updatedAt: Value(utcNowIsoString()),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  /// Ocorrências de uma regra a partir de hoje, com o item materializado.
+  Future<List<_FutureOccurrence>> _futureOccurrences(
+    String ruleId,
+    DateTime from,
+  ) async {
+    final rows =
+        await (_db.select(_db.recurringOccurrences)
+              ..where(
+                (t) =>
+                    t.ruleId.equals(ruleId) &
+                    t.occurrenceDate.isBiggerOrEqualValue(
+                      FinancialDate.fromDateTime(from),
+                    ),
+              )
+              ..orderBy([(t) => OrderingTerm.asc(t.occurrenceDate)]))
+            .get();
+    return rows
+        .map(
+          (row) => _FutureOccurrence(
+            occurrenceId: row.id,
+            plannedItemId: row.plannedItemId,
+            isCancelled: row.status == 'cancelled',
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  /// Primeira data da nova agenda que ainda não está materializada. Ignora
+  /// datas anteriores a [notBefore] para não criar histórico retroativo ao
+  /// mudar a frequência ou o início.
+  Future<DateTime> _firstAvailableOccurrence({
+    required String id,
+    required RecurrenceFrequency frequency,
+    required DateTime startDate,
+    required DateTime? endDate,
+    required DateTime notBefore,
+  }) async {
+    final floor = FinancialDate.dateOnly(notBefore);
+    final end = endDate == null ? null : FinancialDate.dateOnly(endDate);
+    for (var index = 0; index < 10000; index++) {
+      final date = frequency.dateFor(startDate, index);
+      if (date.isBefore(floor)) {
+        continue;
+      }
+      if (end != null && date.isAfter(end)) {
+        return date;
+      }
+      if (!await _occurrenceExists(id, date)) {
+        return date;
+      }
     }
-    await _validateRefs(
-      kind: draft.kind,
-      accountId: draft.accountId,
-      categoryId: draft.categoryId,
-    );
-    await (_db.update(_db.recurringRules)..where((t) => t.id.equals(id))).write(
-      db.RecurringRulesCompanion(
-        kind: Value(draft.kind.dbValue),
-        accountId: Value(_nullIfBlank(draft.accountId)),
-        categoryId: Value(_nullIfBlank(draft.categoryId)),
-        amount: Value(draft.amount),
-        frequency: Value(draft.frequency.dbValue),
-        startDate: Value(FinancialDate.fromDateTime(draft.startDate)),
-        endDate: Value(_dateOrNull(draft.endDate)),
-        nextOccurrenceDate: occurrences > 0
-            ? const Value.absent()
-            : Value(FinancialDate.fromDateTime(draft.initialNextOccurrence)),
-        description: Value(draft.description.trim()),
-        updatedAt: Value(utcNowIsoString()),
-      ),
-    );
+    return floor;
+  }
+
+  Future<db.PlannedItem?> _findPlannedItemRow(String? id) async {
+    if (id == null) {
+      return null;
+    }
+    return (_db.select(
+      _db.plannedItems,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
   Future<void> setRuleActive(String id, {required bool active}) async {
@@ -679,4 +824,16 @@ WHERE pay.planned_item_id = ? AND t.deleted_at IS NULL
 
   DateTime? _parseDate(String? value) =>
       value == null ? null : FinancialDate.tryParse(value);
+}
+
+class _FutureOccurrence {
+  const _FutureOccurrence({
+    required this.occurrenceId,
+    required this.plannedItemId,
+    required this.isCancelled,
+  });
+
+  final String occurrenceId;
+  final String? plannedItemId;
+  final bool isCancelled;
 }
